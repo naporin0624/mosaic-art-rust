@@ -1,12 +1,14 @@
 use image::DynamicImage;
 use palette::{FromColor, Lab, Srgb};
-use std::path::PathBuf;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
-pub mod similarity;
 pub mod adjacency;
-pub mod optimizer;
 pub mod color_adjustment;
+pub mod grid_visualizer;
+pub mod optimizer;
+pub mod similarity;
+pub mod time_tracker;
 
 #[derive(Clone, Debug)]
 pub struct Tile {
@@ -99,13 +101,11 @@ mod tests {
     #[test]
     fn test_calculate_average_lab_single_color() {
         // Test with a single color image (red)
-        let img_buffer = ImageBuffer::from_fn(10, 10, |_, _| {
-            Rgb([255u8, 0u8, 0u8])
-        });
+        let img_buffer = ImageBuffer::from_fn(10, 10, |_, _| Rgb([255u8, 0u8, 0u8]));
         let img = DynamicImage::ImageRgb8(img_buffer);
-        
+
         let lab = MosaicGeneratorImpl::calculate_average_lab(&img);
-        
+
         // Red in Lab color space approximately
         assert!((lab.l - 53.24).abs() < 1.0);
         assert!((lab.a - 80.09).abs() < 1.0);
@@ -115,13 +115,11 @@ mod tests {
     #[test]
     fn test_calculate_average_lab_grayscale() {
         // Test with a grayscale image (middle gray)
-        let img_buffer = ImageBuffer::from_fn(10, 10, |_, _| {
-            Rgb([128u8, 128u8, 128u8])
-        });
+        let img_buffer = ImageBuffer::from_fn(10, 10, |_, _| Rgb([128u8, 128u8, 128u8]));
         let img = DynamicImage::ImageRgb8(img_buffer);
-        
+
         let lab = MosaicGeneratorImpl::calculate_average_lab(&img);
-        
+
         // Middle gray should have a=0, b=0
         assert!((lab.l - 53.59).abs() < 1.0);
         assert!(lab.a.abs() < 1.0);
@@ -133,8 +131,12 @@ mod tests {
         let target_aspect = 16.0 / 9.0;
         let img_aspect = 16.0 / 9.0;
         let tolerance = 0.1;
-        
-        assert!(MosaicGeneratorImpl::is_aspect_ratio_match(img_aspect, target_aspect, tolerance));
+
+        assert!(MosaicGeneratorImpl::is_aspect_ratio_match(
+            img_aspect,
+            target_aspect,
+            tolerance
+        ));
     }
 
     #[test]
@@ -142,8 +144,12 @@ mod tests {
         let target_aspect = 16.0 / 9.0; // 1.777...
         let img_aspect = 1.8;
         let tolerance = 0.1;
-        
-        assert!(MosaicGeneratorImpl::is_aspect_ratio_match(img_aspect, target_aspect, tolerance));
+
+        assert!(MosaicGeneratorImpl::is_aspect_ratio_match(
+            img_aspect,
+            target_aspect,
+            tolerance
+        ));
     }
 
     #[test]
@@ -151,8 +157,12 @@ mod tests {
         let target_aspect = 16.0 / 9.0; // 1.777...
         let img_aspect = 4.0 / 3.0; // 1.333...
         let tolerance = 0.1;
-        
-        assert!(!MosaicGeneratorImpl::is_aspect_ratio_match(img_aspect, target_aspect, tolerance));
+
+        assert!(!MosaicGeneratorImpl::is_aspect_ratio_match(
+            img_aspect,
+            target_aspect,
+            tolerance
+        ));
     }
 
     #[test]
@@ -160,24 +170,28 @@ mod tests {
         let target_aspect = 9.0 / 16.0; // 0.5625 (portrait)
         let img_aspect = 16.0 / 9.0; // 1.777... (landscape)
         let tolerance = 0.1;
-        
-        assert!(!MosaicGeneratorImpl::is_aspect_ratio_match(img_aspect, target_aspect, tolerance));
+
+        assert!(!MosaicGeneratorImpl::is_aspect_ratio_match(
+            img_aspect,
+            target_aspect,
+            tolerance
+        ));
     }
 
     #[test]
     fn test_kdtree_nearest_neighbor() {
         let mut kdtree = kiddo::float::kdtree::KdTree::<f32, u64, 3, 256, u32>::new();
-        
+
         // Add some test points in Lab color space
         kdtree.add(&[50.0, 0.0, 0.0], 0u64); // Gray
         kdtree.add(&[53.24, 80.09, 67.20], 1u64); // Red
         kdtree.add(&[87.74, -86.18, 83.18], 2u64); // Green
         kdtree.add(&[32.30, 79.20, -107.86], 3u64); // Blue
-        
+
         // Query for a color close to red
         let query = [53.0, 80.0, 67.0];
         let nearest = kdtree.nearest_one::<SquaredEuclidean>(&query);
-        
+
         assert_eq!(nearest.item, 1); // Should find the red point
     }
 
@@ -188,7 +202,7 @@ mod tests {
             lab_color: Lab::new(50.0, 0.0, 0.0),
             aspect_ratio: 16.0 / 9.0,
         };
-        
+
         assert_eq!(tile.path.to_str().unwrap(), "test.png");
         assert_eq!(tile.aspect_ratio, 16.0 / 9.0);
         assert_eq!(tile.lab_color.l, 50.0);
@@ -198,7 +212,7 @@ mod tests {
     fn test_usage_tracker_creation() {
         let tracker = UsageTracker::new(3);
         let test_path = PathBuf::from("test.png");
-        
+
         assert!(tracker.can_use_image(&test_path));
         assert_eq!(tracker.get_usage_count(&test_path), 0);
     }
@@ -207,15 +221,15 @@ mod tests {
     fn test_usage_tracker_use_image() {
         let mut tracker = UsageTracker::new(2);
         let test_path = PathBuf::from("test.png");
-        
+
         // Initially can use image
         assert!(tracker.can_use_image(&test_path));
-        
+
         // Use image once
         tracker.use_image(&test_path);
         assert_eq!(tracker.get_usage_count(&test_path), 1);
         assert!(tracker.can_use_image(&test_path));
-        
+
         // Use image second time
         tracker.use_image(&test_path);
         assert_eq!(tracker.get_usage_count(&test_path), 2);
@@ -227,12 +241,12 @@ mod tests {
         let mut tracker = UsageTracker::new(1);
         let path1 = PathBuf::from("image1.png");
         let path2 = PathBuf::from("image2.png");
-        
+
         // Use first image
         tracker.use_image(&path1);
         assert!(!tracker.can_use_image(&path1));
         assert!(tracker.can_use_image(&path2)); // Second image should still be usable
-        
+
         // Use second image
         tracker.use_image(&path2);
         assert!(!tracker.can_use_image(&path2));
@@ -242,10 +256,10 @@ mod tests {
     fn test_usage_tracker_reset() {
         let mut tracker = UsageTracker::new(1);
         let test_path = PathBuf::from("test.png");
-        
+
         tracker.use_image(&test_path);
         assert!(!tracker.can_use_image(&test_path));
-        
+
         tracker.reset();
         assert!(tracker.can_use_image(&test_path));
         assert_eq!(tracker.get_usage_count(&test_path), 0);
@@ -255,7 +269,7 @@ mod tests {
     fn test_usage_tracker_max_usage_zero() {
         let tracker = UsageTracker::new(0);
         let test_path = PathBuf::from("test.png");
-        
+
         // With max usage 0, no image should be usable
         assert!(!tracker.can_use_image(&test_path));
     }

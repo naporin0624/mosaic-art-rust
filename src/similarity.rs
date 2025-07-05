@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use palette::Lab;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 /// Serializable Lab color representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,7 +79,7 @@ impl SimilarityDatabase {
     pub fn get_similarity(&self, path1: &Path, path2: &Path) -> Option<f32> {
         let idx1 = self.path_to_index.get(path1)?;
         let idx2 = self.path_to_index.get(path2)?;
-        
+
         if idx1 == idx2 {
             return Some(0.0);
         }
@@ -92,7 +92,7 @@ impl SimilarityDatabase {
 
         let n = self.lab_colors.len();
         let position = i * n - i * (i + 1) / 2 + j - i - 1;
-        
+
         self.similarities.get(position).copied()
     }
 
@@ -177,19 +177,19 @@ mod tests {
     #[test]
     fn test_similarity_database_basic() {
         let mut db = SimilarityDatabase::new();
-        
+
         // Add some test tiles
         db.add_tile(PathBuf::from("tile1.png"), Lab::new(50.0, 0.0, 0.0));
         db.add_tile(PathBuf::from("tile2.png"), Lab::new(60.0, 10.0, 10.0));
         db.add_tile(PathBuf::from("tile3.png"), Lab::new(40.0, -10.0, -10.0));
-        
+
         // Build similarities
         db.build_similarities();
-        
+
         // Test similarity retrieval
         let sim = db.get_similarity(Path::new("tile1.png"), Path::new("tile2.png"));
         assert!(sim.is_some());
-        
+
         // Same image should have 0 similarity
         let sim_same = db.get_similarity(Path::new("tile1.png"), Path::new("tile1.png"));
         assert_eq!(sim_same, Some(0.0));
@@ -200,10 +200,10 @@ mod tests {
         let lab1 = Lab::new(50.0, 0.0, 0.0);
         let lab2 = Lab::new(50.0, 0.0, 0.0);
         let lab3 = Lab::new(60.0, 10.0, 10.0);
-        
+
         // Same color should have 0 distance
         assert_eq!(calculate_lab_distance(&lab1, &lab2), 0.0);
-        
+
         // Different colors should have positive distance
         assert!(calculate_lab_distance(&lab1, &lab3) > 0.0);
     }

@@ -5,3 +5,4 @@ convert_images.fixed.sh
 demo.sh
 similarity_db.json
 *.png
+*.jpg

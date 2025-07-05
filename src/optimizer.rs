@@ -1,6 +1,6 @@
+use crate::adjacency::{AdjacencyPenaltyCalculator, GridPosition};
 use rand::Rng;
 use std::path::PathBuf;
-use crate::adjacency::{AdjacencyPenaltyCalculator, GridPosition};
 
 /// Configuration for the optimization process
 #[derive(Debug, Clone)]
@@ -53,18 +53,17 @@ impl<'a> MosaicOptimizer<'a> {
         let mut accepted_count = 0;
         let mut temperature = self.config.initial_temperature;
 
-        println!("Starting optimization with initial cost: {:.3}", initial_cost);
+        println!(
+            "Starting optimization with initial cost: {:.3}",
+            initial_cost
+        );
 
         for iteration in 0..self.config.max_iterations {
             // Select two random positions
-            let pos1 = GridPosition::new(
-                rng.gen_range(0..grid_width),
-                rng.gen_range(0..grid_height),
-            );
-            let pos2 = GridPosition::new(
-                rng.gen_range(0..grid_width),
-                rng.gen_range(0..grid_height),
-            );
+            let pos1 =
+                GridPosition::new(rng.gen_range(0..grid_width), rng.gen_range(0..grid_height));
+            let pos2 =
+                GridPosition::new(rng.gen_range(0..grid_width), rng.gen_range(0..grid_height));
 
             // Skip if same position
             if pos1 == pos2 {
@@ -109,7 +108,11 @@ impl<'a> MosaicOptimizer<'a> {
             if (iteration + 1) % self.config.report_interval == 0 {
                 println!(
                     "Iteration {}: cost={:.3}, temp={:.3}, improvements={}, accepted={}",
-                    iteration + 1, current_cost, temperature, improved_count, accepted_count
+                    iteration + 1,
+                    current_cost,
+                    temperature,
+                    improved_count,
+                    accepted_count
                 );
             }
         }
@@ -130,7 +133,11 @@ impl<'a> MosaicOptimizer<'a> {
     }
 
     /// Perform a greedy optimization (only accept improvements)
-    pub fn optimize_greedy(&self, grid: &mut Vec<Vec<Option<PathBuf>>>, max_iterations: usize) -> OptimizationResult {
+    pub fn optimize_greedy(
+        &self,
+        grid: &mut Vec<Vec<Option<PathBuf>>>,
+        max_iterations: usize,
+    ) -> OptimizationResult {
         let grid_height = grid.len();
         if grid_height == 0 {
             return OptimizationResult::default();
@@ -142,17 +149,16 @@ impl<'a> MosaicOptimizer<'a> {
         let initial_cost = current_cost;
         let mut improved_count = 0;
 
-        println!("Starting greedy optimization with initial cost: {:.3}", initial_cost);
+        println!(
+            "Starting greedy optimization with initial cost: {:.3}",
+            initial_cost
+        );
 
         for iteration in 0..max_iterations {
-            let pos1 = GridPosition::new(
-                rng.gen_range(0..grid_width),
-                rng.gen_range(0..grid_height),
-            );
-            let pos2 = GridPosition::new(
-                rng.gen_range(0..grid_width),
-                rng.gen_range(0..grid_height),
-            );
+            let pos1 =
+                GridPosition::new(rng.gen_range(0..grid_width), rng.gen_range(0..grid_height));
+            let pos2 =
+                GridPosition::new(rng.gen_range(0..grid_width), rng.gen_range(0..grid_height));
 
             if pos1 == pos2 {
                 continue;
@@ -177,7 +183,9 @@ impl<'a> MosaicOptimizer<'a> {
             if (iteration + 1) % 100 == 0 {
                 println!(
                     "Iteration {}: cost={:.3}, improvements={}",
-                    iteration + 1, current_cost, improved_count
+                    iteration + 1,
+                    current_cost,
+                    improved_count
                 );
             }
         }
@@ -223,8 +231,8 @@ impl OptimizationResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::similarity::SimilarityDatabase;
     use crate::adjacency::AdjacencyPenaltyCalculator;
+    use crate::similarity::SimilarityDatabase;
     use palette::Lab;
 
     fn create_test_grid() -> (Vec<Vec<Option<PathBuf>>>, SimilarityDatabase) {
@@ -248,12 +256,12 @@ mod tests {
     fn test_optimization_basic() {
         let (mut grid, sim_db) = create_test_grid();
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
-        
+
         let config = OptimizationConfig {
             max_iterations: 10,
             ..Default::default()
         };
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, config);
         let result = optimizer.optimize(&mut grid);
 
@@ -267,7 +275,7 @@ mod tests {
     fn test_greedy_optimization() {
         let (mut grid, sim_db) = create_test_grid();
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, OptimizationConfig::default());
         let result = optimizer.optimize_greedy(&mut grid, 10);
 

@@ -1,5 +1,5 @@
-use std::path::Path;
 use crate::similarity::SimilarityDatabase;
+use std::path::Path;
 
 /// Represents a position in the grid
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -14,29 +14,33 @@ impl GridPosition {
     }
 
     /// Get all adjacent positions (up, down, left, right)
-    pub fn get_adjacent_positions(&self, grid_width: usize, grid_height: usize) -> Vec<GridPosition> {
+    pub fn get_adjacent_positions(
+        &self,
+        grid_width: usize,
+        grid_height: usize,
+    ) -> Vec<GridPosition> {
         let mut adjacent = Vec::new();
-        
+
         // Up
         if self.y > 0 {
             adjacent.push(GridPosition::new(self.x, self.y - 1));
         }
-        
+
         // Down
         if self.y < grid_height - 1 {
             adjacent.push(GridPosition::new(self.x, self.y + 1));
         }
-        
+
         // Left
         if self.x > 0 {
             adjacent.push(GridPosition::new(self.x - 1, self.y));
         }
-        
+
         // Right
         if self.x < grid_width - 1 {
             adjacent.push(GridPosition::new(self.x + 1, self.y));
         }
-        
+
         adjacent
     }
 }
@@ -69,7 +73,10 @@ impl<'a> AdjacencyPenaltyCalculator<'a> {
 
         for adj_pos in adjacent_positions {
             if let Some(neighbor_path) = &grid[adj_pos.y][adj_pos.x] {
-                if let Some(similarity) = self.similarity_db.get_similarity(candidate_path, neighbor_path) {
+                if let Some(similarity) = self
+                    .similarity_db
+                    .get_similarity(candidate_path, neighbor_path)
+                {
                     // Higher similarity (smaller distance) results in higher penalty
                     // Using inverse with offset to avoid division by zero
                     penalty += 1.0 / (similarity + 1.0);
@@ -87,7 +94,7 @@ impl<'a> AdjacencyPenaltyCalculator<'a> {
             return 0.0;
         }
         let grid_width = grid[0].len();
-        
+
         let mut total_cost = 0.0;
 
         for y in 0..grid_height {
@@ -97,16 +104,20 @@ impl<'a> AdjacencyPenaltyCalculator<'a> {
                     // Right neighbor
                     if x < grid_width - 1 {
                         if let Some(right_path) = &grid[y][x + 1] {
-                            if let Some(similarity) = self.similarity_db.get_similarity(current_path, right_path) {
+                            if let Some(similarity) =
+                                self.similarity_db.get_similarity(current_path, right_path)
+                            {
                                 total_cost += 1.0 / (similarity + 1.0);
                             }
                         }
                     }
-                    
+
                     // Down neighbor
                     if y < grid_height - 1 {
                         if let Some(down_path) = &grid[y + 1][x] {
-                            if let Some(similarity) = self.similarity_db.get_similarity(current_path, down_path) {
+                            if let Some(similarity) =
+                                self.similarity_db.get_similarity(current_path, down_path)
+                            {
                                 total_cost += 1.0 / (similarity + 1.0);
                             }
                         }
@@ -156,7 +167,7 @@ impl<'a> AdjacencyPenaltyCalculator<'a> {
             if *adj_pos == pos2 {
                 continue;
             }
-            
+
             if let Some(adj_path) = &grid[adj_pos.y][adj_pos.x] {
                 // Old cost with path1 at pos1
                 if let Some(old_sim) = self.similarity_db.get_similarity(path1, adj_path) {
@@ -176,7 +187,7 @@ impl<'a> AdjacencyPenaltyCalculator<'a> {
             if *adj_pos == pos1 {
                 continue;
             }
-            
+
             if let Some(adj_path) = &grid[adj_pos.y][adj_pos.x] {
                 // Old cost with path2 at pos2
                 if let Some(old_sim) = self.similarity_db.get_similarity(path2, adj_path) {
@@ -273,7 +284,7 @@ mod tests {
         grid[0][1] = Some(PathBuf::from("tile2.png"));
 
         let total_cost = calculator.calculate_total_cost(&grid);
-        
+
         // Should have high cost since tiles are identical (similarity = 0)
         assert!(total_cost > 0.5);
     }

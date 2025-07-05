@@ -1,96 +1,247 @@
-# Mosaic Art Generator - Rust Edition
+# Mosaic Art Generator
 
-高速なRust実装のモザイクアート生成ツール。Pythonバージョンよりも大幅に高速化されています。
+A high-performance mosaic art generator that creates stunning mosaic images by replacing sections of a target image with smaller material images based on color similarity.
 
-## 特徴
+## Features
 
-- **高速処理**: Lab色空間とk-d treeによる高速マッチング
-- **並列処理**: Rayonによる自動並列化
-- **メモリ効率**: Arcによる効率的なメモリ管理
-- **アスペクト比フィルタリング**: 対象画像と同じアスペクト比の素材のみ使用
-- **SIMD最適化**: fast_image_resizeによる高速リサイズ
+- **Fast color matching**: Uses Lab color space and k-d tree for perceptually accurate and fast matching
+- **Parallel processing**: Automatic parallelization with Rayon for faster processing
+- **Smart placement**: Prevents the same image from being placed adjacent to itself
+- **Color adjustment**: Automatically adjusts material colors to better match the target
+- **Similarity caching**: Pre-computes and caches similarity between materials for faster processing
+- **Post-placement optimization**: Uses simulated annealing to improve the final result
+- **Real-time progress**: Shows grid visualization and time tracking during processing
+- **Aspect ratio filtering**: Optionally uses only materials matching the target's aspect ratio
+- **Usage limits**: Controls how many times each material image can be used
 
-## 技術的な最適化
-
-- **Lab色空間**: 人間の知覚に近い色空間での色マッチング
-- **k-d tree**: O(log n)の高速最近傍探索
-- **並列画像処理**: タイルの処理を並列化
-- **キャッシュ効率**: 素材画像のメタデータを事前計算
-
-## インストール
+## Installation
 
 ```bash
-# mise を使用
+# Using mise for environment management
 cd mosaic-rust
 mise install
 mise trust
 
-# ビルド（デバッグ版）
-cargo build
-
-# ビルド（リリース版・最適化有効）
+# Build the release version (recommended)
 cargo build --release
 ```
 
-## 使用方法
+## Quick Start
 
 ```bash
-# 基本的な使用
-cargo run --release -- \
-  --target ../yoko.png \
-  --material-src ../sozai \
-  --output ../product/mosaic_rust.png
-
-# 詳細なオプション指定
-cargo run --release -- \
-  --target ../yoko.png \
-  --material-src ../sozai \
-  --output ../product/mosaic_rust.png \
-  --grid-w 64 \
-  --grid-h 36 \
-  --max-materials 1000 \
-  --aspect-tolerance 0.05
+# Basic usage
+./target/release/mosaic-rust \
+  --target photo.jpg \
+  --material-src ./materials \
+  --output mosaic.jpg
 ```
 
-## コマンドラインオプション
+## Command Line Options
 
-| オプション | 説明 | デフォルト |
-|-----------|------|-----------|
-| `--target` | 対象画像パス | 必須 |
-| `--material-src` | 素材画像ディレクトリ | 必須 |
-| `--output` | 出力ファイルパス | 必須 |
-| `--grid-w` | 横方向のタイル数 | 50 |
-| `--grid-h` | 縦方向のタイル数 | 28 |
-| `--max-materials` | 使用する最大素材数 | 500 |
-| `--aspect-tolerance` | アスペクト比許容誤差 | 0.1 |
+### Required Options
 
-## パフォーマンス比較
+| Option           | Description                          |
+| ---------------- | ------------------------------------ |
+| `--target`       | Path to the target image             |
+| `--material-src` | Directory containing material images |
+| `--output`       | Path for the output mosaic image     |
 
-Python版と比較して期待される改善:
+### Grid Settings
 
-- **素材読み込み**: 5-10倍高速（並列処理）
-- **色計算**: 3-5倍高速（Lab色空間の効率的な実装）
-- **最近傍探索**: 100倍以上高速（k-d tree vs 線形探索）
-- **画像リサイズ**: 5-10倍高速（SIMD最適化）
-- **全体処理時間**: 10-20倍高速
+| Option     | Description                  | Default |
+| ---------- | ---------------------------- | ------- |
+| `--grid-w` | Number of tiles horizontally | 50      |
+| `--grid-h` | Number of tiles vertically   | 28      |
 
-## ビルド最適化
+### Material Selection
 
-リリースビルドでは以下の最適化が有効:
+| Option               | Description                         | Default |
+| -------------------- | ----------------------------------- | ------- |
+| `--max-materials`    | Maximum number of materials to use  | 500     |
+| `--aspect-tolerance` | Aspect ratio tolerance (0.1 = ±10%) | 0.1     |
+
+### Placement Constraints
+
+| Option                       | Description                                 | Default |
+| ---------------------------- | ------------------------------------------- | ------- |
+| `--max-usage-per-image`      | Maximum usage count per material image      | 3       |
+| `--adjacency-penalty-weight` | Weight for adjacency penalty (0.0 disables) | 0.3     |
+
+### Optimization Settings
+
+| Option                      | Description                        | Default |
+| --------------------------- | ---------------------------------- | ------- |
+| `--enable-optimization`     | Enable post-placement optimization | true    |
+| `--optimization-iterations` | Maximum optimization iterations    | 1000    |
+
+### Similarity Database
+
+| Option                    | Description                          | Default            |
+| ------------------------- | ------------------------------------ | ------------------ |
+| `--similarity-db`         | Path to similarity database          | similarity_db.json |
+| `--rebuild-similarity-db` | Force rebuild of similarity database | false              |
+
+### Color Adjustment
+
+| Option                        | Description                                       | Default |
+| ----------------------------- | ------------------------------------------------- | ------- |
+| `--color-adjustment-strength` | Color adjustment strength (0.0-1.0, 0.0 disables) | 0.3     |
+
+### Display Settings
+
+| Option        | Description                                    | Default |
+| ------------- | ---------------------------------------------- | ------- |
+| `--show-time` | Show processing time tracking information      | true    |
+| `--show-grid` | Show real-time grid progress during processing | true    |
+
+## Examples
+
+### High Quality Mosaic
+
+Create a detailed mosaic with fine grid and many materials:
+
+```bash
+./target/release/mosaic-rust \
+  --target photo.jpg \
+  --material-src ./materials \
+  --output high_quality.jpg \
+  --grid-w 100 \
+  --grid-h 75 \
+  --max-materials 2000 \
+  --optimization-iterations 5000
+```
+
+### Fast Processing
+
+Disable optimization for faster processing:
+
+```bash
+./target/release/mosaic-rust \
+  --target photo.jpg \
+  --material-src ./materials \
+  --output fast_mosaic.jpg \
+  --enable-optimization false \
+  --adjacency-penalty-weight 0.0 \
+  --show-grid false
+```
+
+### Strict Aspect Ratio
+
+Use only materials that closely match the target's aspect ratio:
+
+```bash
+./target/release/mosaic-rust \
+  --target photo.jpg \
+  --material-src ./materials \
+  --output strict_aspect.jpg \
+  --aspect-tolerance 0.01 \
+  --max-materials 1000
+```
+
+### No Repetition
+
+Ensure each material is used at most once:
+
+```bash
+./target/release/mosaic-rust \
+  --target photo.jpg \
+  --material-src ./materials \
+  --output no_repeat.jpg \
+  --max-usage-per-image 1
+```
+
+## How It Works
+
+1. **Material Loading**: Loads and analyzes all images from the material directory
+2. **Similarity Analysis**: Builds a database of material similarities (cached for reuse)
+3. **Color Indexing**: Creates a k-d tree for fast color-based searching
+4. **Grid Generation**: Divides the target image into a grid and finds the best material for each cell
+5. **Smart Placement**: Considers color similarity, usage limits, and adjacency constraints
+6. **Color Adjustment**: Fine-tunes material colors to match the target region
+7. **Optimization**: Improves the placement through iterative swapping (if enabled)
+8. **Image Assembly**: Combines all materials into the final mosaic image
+
+## Tips for Best Results
+
+### Material Selection
+- Use a diverse set of material images with varied colors
+- More materials generally produce better results
+- Materials should be high quality and well-lit
+
+### Grid Size
+- Larger grids (more tiles) create more detailed mosaics
+- Smaller grids create more abstract, artistic results
+- Balance grid size with material size for best visual effect
+
+### Performance Tuning
+- Disable optimization and grid display for fastest processing
+- Reduce max-materials if memory usage is high
+- Use similarity database (automatic) for faster subsequent runs
+
+### Quality Enhancement
+- Enable color adjustment for better color matching
+- Use adjacency penalty to avoid repetitive patterns
+- Increase optimization iterations for better placement
+
+## Troubleshooting
+
+### No Materials Match Aspect Ratio
+
+If you see a warning about aspect ratio matching:
+
+```bash
+# Increase tolerance
+./target/release/mosaic-rust \
+  --target photo.jpg \
+  --material-src ./materials \
+  --output mosaic.jpg \
+  --aspect-tolerance 0.2  # Allow ±20%
+```
+
+### High Memory Usage
+
+Limit the number of materials:
+
+```bash
+./target/release/mosaic-rust \
+  --target photo.jpg \
+  --material-src ./materials \
+  --output mosaic.jpg \
+  --max-materials 200
+```
+
+### Slow Processing
+
+Disable optional features:
+
+```bash
+./target/release/mosaic-rust \
+  --target photo.jpg \
+  --material-src ./materials \
+  --output mosaic.jpg \
+  --enable-optimization false \
+  --show-grid false
+```
+
+## Build Configuration
+
+The release build uses these optimizations:
 
 ```toml
 [profile.release]
 lto = true          # Link Time Optimization
-opt-level = 3       # 最大最適化
-codegen-units = 1   # 単一コード生成ユニット
+opt-level = 3       # Maximum optimization
+codegen-units = 1   # Single code generation unit
 ```
 
-## 依存関係
+## Dependencies
 
-- `image`: 画像の読み込み・保存
-- `fast_image_resize`: SIMD最適化されたリサイズ
-- `palette`: Lab色空間変換
-- `kiddo`: k-d tree実装
-- `rayon`: データ並列処理
-- `clap`: CLIパーサー
-- `indicatif`: プログレスバー表示
+- `image`: Image loading and saving
+- `fast_image_resize`: SIMD-optimized resizing
+- `palette`: Lab color space conversion
+- `kiddo`: k-d tree implementation
+- `rayon`: Data parallel processing
+- `clap`: CLI parser
+- `indicatif`: Progress bar display
+- `anyhow`: Error handling
+- `serde`/`serde_json`: Database serialization

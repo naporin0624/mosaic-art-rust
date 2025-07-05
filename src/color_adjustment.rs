@@ -1,5 +1,5 @@
 use image::{DynamicImage, ImageBuffer, Rgb};
-use palette::{Hsv, Srgb, IntoColor};
+use palette::{Hsv, IntoColor, Srgb};
 
 /// Color adjustments to apply to tiles for better matching
 #[derive(Debug, Clone, Copy)]
@@ -40,12 +40,12 @@ impl ColorAdjustment {
     pub fn apply_to_image(&self, img: &DynamicImage) -> DynamicImage {
         let rgb_img = img.to_rgb8();
         let (width, height) = rgb_img.dimensions();
-        
+
         let adjusted_buffer = ImageBuffer::from_fn(width, height, |x, y| {
             let pixel = rgb_img.get_pixel(x, y);
             self.adjust_pixel(*pixel)
         });
-        
+
         DynamicImage::ImageRgb8(adjusted_buffer)
     }
 
@@ -55,16 +55,16 @@ impl ColorAdjustment {
         let r = pixel[0] as f32 / 255.0;
         let g = pixel[1] as f32 / 255.0;
         let b = pixel[2] as f32 / 255.0;
-        
+
         let srgb = Srgb::new(r, g, b);
-        
+
         // Apply brightness and contrast adjustments
         let brightness_adjusted = Srgb::new(
             apply_brightness_contrast(srgb.red, self.brightness, self.contrast),
             apply_brightness_contrast(srgb.green, self.brightness, self.contrast),
             apply_brightness_contrast(srgb.blue, self.brightness, self.contrast),
         );
-        
+
         // Apply hue and saturation adjustments if needed
         let final_color = if self.hue_shift != 0.0 || self.saturation != 1.0 {
             let hsv: Hsv = brightness_adjusted.into_color();
@@ -77,7 +77,7 @@ impl ColorAdjustment {
         } else {
             brightness_adjusted
         };
-        
+
         // Convert back to u8
         Rgb([
             (final_color.red * 255.0).clamp(0.0, 255.0) as u8,
@@ -105,23 +105,23 @@ pub fn calculate_optimal_adjustment(
     let tile_r = tile_avg_rgb[0] as f32 / 255.0;
     let tile_g = tile_avg_rgb[1] as f32 / 255.0;
     let tile_b = tile_avg_rgb[2] as f32 / 255.0;
-    
+
     let target_r = target_avg_rgb[0] as f32 / 255.0;
     let target_g = target_avg_rgb[1] as f32 / 255.0;
     let target_b = target_avg_rgb[2] as f32 / 255.0;
-    
+
     // Calculate brightness difference (luminance)
     let tile_luma = 0.299 * tile_r + 0.587 * tile_g + 0.114 * tile_b;
     let target_luma = 0.299 * target_r + 0.587 * target_g + 0.114 * target_b;
     let brightness_diff = (target_luma - tile_luma) * adjustment_strength;
-    
+
     // Convert to HSV to analyze hue and saturation differences
     let tile_srgb = Srgb::new(tile_r, tile_g, tile_b);
     let target_srgb = Srgb::new(target_r, target_g, target_b);
-    
+
     let tile_hsv: Hsv = tile_srgb.into_color();
     let target_hsv: Hsv = target_srgb.into_color();
-    
+
     // Calculate hue difference (handling wraparound)
     let hue_diff = if tile_hsv.saturation > 0.1 && target_hsv.saturation > 0.1 {
         let diff = target_hsv.hue.into_inner() - tile_hsv.hue.into_inner();
@@ -136,7 +136,7 @@ pub fn calculate_optimal_adjustment(
     } else {
         0.0
     };
-    
+
     // Calculate saturation ratio
     let saturation_ratio = if tile_hsv.saturation > 0.01 {
         let ratio = target_hsv.saturation / tile_hsv.saturation;
@@ -144,7 +144,7 @@ pub fn calculate_optimal_adjustment(
     } else {
         1.0
     };
-    
+
     ColorAdjustment::new(
         brightness_diff,
         1.0, // Keep contrast at 1.0 for now
@@ -181,12 +181,12 @@ mod tests {
         let adjustment = ColorAdjustment::default();
         let pixel = Rgb([128, 64, 192]);
         let adjusted = adjustment.adjust_pixel(pixel);
-        
+
         // With default adjustment, pixel should remain nearly unchanged
         let diff_r = (adjusted[0] as i16 - pixel[0] as i16).abs();
         let diff_g = (adjusted[1] as i16 - pixel[1] as i16).abs();
         let diff_b = (adjusted[2] as i16 - pixel[2] as i16).abs();
-        
+
         assert!(diff_r <= 1);
         assert!(diff_g <= 1);
         assert!(diff_b <= 1);
@@ -197,7 +197,7 @@ mod tests {
         let adjustment = ColorAdjustment::new(0.2, 1.0, 0.0, 1.0);
         let pixel = Rgb([100, 100, 100]);
         let adjusted = adjustment.adjust_pixel(pixel);
-        
+
         // Brightness increase should make all channels brighter
         assert!(adjusted[0] > pixel[0]);
         assert!(adjusted[1] > pixel[1]);
@@ -209,10 +209,10 @@ mod tests {
         let adjustment = ColorAdjustment::new(0.0, 1.5, 0.0, 1.0);
         let dark_pixel = Rgb([50, 50, 50]);
         let bright_pixel = Rgb([200, 200, 200]);
-        
+
         let adjusted_dark = adjustment.adjust_pixel(dark_pixel);
         let adjusted_bright = adjustment.adjust_pixel(bright_pixel);
-        
+
         // Higher contrast should make dark pixels darker and bright pixels brighter
         assert!(adjusted_dark[0] < dark_pixel[0]);
         assert!(adjusted_bright[0] > bright_pixel[0]);
@@ -222,7 +222,7 @@ mod tests {
     fn test_optimal_adjustment_same_color() {
         let color = Rgb([128, 128, 128]);
         let adjustment = calculate_optimal_adjustment(color, color, 1.0);
-        
+
         // Same colors should result in minimal adjustment
         assert!(adjustment.brightness.abs() < 0.01);
         assert!((adjustment.contrast - 1.0).abs() < 0.01);
@@ -234,10 +234,10 @@ mod tests {
     fn test_apply_brightness_contrast() {
         // Test midtone with no adjustment
         assert!((apply_brightness_contrast(0.5, 0.0, 1.0) - 0.5).abs() < 0.001);
-        
+
         // Test brightness increase
         assert!(apply_brightness_contrast(0.5, 0.2, 1.0) > 0.5);
-        
+
         // Test contrast increase
         assert!(apply_brightness_contrast(0.3, 0.0, 1.5) < 0.3);
         assert!(apply_brightness_contrast(0.7, 0.0, 1.5) > 0.7);

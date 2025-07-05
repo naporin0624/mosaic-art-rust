@@ -1,5 +1,6 @@
 [tools]
-rust = "latest"
+cargo = "0.89.0"
+rust = "1.88.0"
 
 [env]
 RUST_BACKTRACE = "1"
