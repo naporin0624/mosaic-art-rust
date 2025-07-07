@@ -6,4 +6,6 @@ demo.sh
 similarity_db.json
 *.png
 *.jpg
+!examples/*.png
+!examples/*.jpg
 sozai

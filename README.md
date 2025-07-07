@@ -2,6 +2,18 @@
 
 A high-performance mosaic art generator written in Rust that creates stunning mosaic images by intelligently replacing sections of a target image with smaller material images based on perceptual color similarity.
 
+## Example Output
+
+Transform any image into a detailed mosaic composed of thousands of smaller images:
+
+<div align="center">
+
+| Original Image | Generated Mosaic (24,000 tiles) |
+|:--------------:|:-------------------------------:|
+| <img src="examples/mosaic.png" width="400" alt="Original Image"/> | <img src="examples/mosaic_24000_4.png" width="400" alt="Generated Mosaic"/> |
+
+</div>
+
 ## Features
 
 - **Perceptual Color Matching**: Uses Lab color space with k-d tree (O(log n) search) for perceptually accurate matching
@@ -70,6 +82,31 @@ cargo build --release
   --color-adjustment-strength 0.4 \
   --optimization-iterations 2000
 ```
+
+## Example: High-Resolution Birthday Mosaic
+
+This example demonstrates the generator's capabilities using a birthday artwork as the target image, showcasing the detailed color matching and optimization features.
+
+| Original Image | Generated Mosaic (24,000 tiles) |
+|:--------------:|:-------------------------------:|
+| ![Original Birthday Artwork](examples/mosaic.png) | ![Generated Mosaic](examples/mosaic_24000_4.png) |
+
+### Command Used
+```bash
+./target/release/mosaic-rust \
+  --target ./mosaic.png \
+  --material-src ./sozai \
+  --output mosaic_24000_4.png \
+  --grid-w 206 \
+  --grid-h 116 \
+  --max-materials 2849 \
+  --max-usage-per-image 9 \
+  --adjacency-penalty-weight 0.25 \
+  --optimization-iterations 2000 \
+  --color-adjustment-strength 0.4
+```
+
+This high-resolution mosaic was created for the [Ristill Birthday 2025](https://ristill.club/2025) website, demonstrating the generator's ability to handle complex artwork with vibrant colors and intricate details. The 206×116 grid creates a mosaic with 23,896 individual tiles, each carefully selected from a collection of 2,849 material images.
 
 ## Command Line Options
 
