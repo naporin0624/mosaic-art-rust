@@ -127,7 +127,7 @@ impl MosaicGenerator {
 
             // Save to file
             if let Err(e) = db.save_to_file(similarity_db_path) {
-                eprintln!("Warning: Failed to save similarity database: {}", e);
+                eprintln!("Warning: Failed to save similarity database: {e}");
             }
             db
         } else {
@@ -200,7 +200,7 @@ impl MosaicGenerator {
                     Ok(Some(tile)) => Some(Arc::new(tile)),
                     Ok(None) => None,
                     Err(e) => {
-                        eprintln!("Error processing {:?}: {}", path, e);
+                        eprintln!("Error processing {path:?}: {e}");
                         None
                     }
                 }
@@ -213,7 +213,7 @@ impl MosaicGenerator {
 
         // If no tiles match the aspect ratio, fall back to loading tiles without aspect filtering
         if tiles.is_empty() {
-            println!("No tiles matched target aspect ratio {:.3}, loading tiles without aspect filtering...", target_aspect);
+            println!("No tiles matched target aspect ratio {target_aspect:.3}, loading tiles without aspect filtering...");
 
             // Take a subset of entries to speed up processing
             let max_fallback_tiles = std::cmp::min(entries.len(), max_materials * 2);
@@ -241,7 +241,7 @@ impl MosaicGenerator {
                     match Self::process_tile_no_aspect_filter(&path) {
                         Ok(tile) => Some(Arc::new(tile)),
                         Err(e) => {
-                            eprintln!("Error processing {:?}: {}", path, e);
+                            eprintln!("Error processing {path:?}: {e}");
                             None
                         }
                     }
@@ -495,11 +495,8 @@ impl MosaicGenerator {
         let tile_width = img_width / grid_w;
         let tile_height = img_height / grid_h;
 
-        println!("Target image: {}x{}", img_width, img_height);
-        println!(
-            "Grid: {}x{}, Tile size: {}x{}",
-            grid_w, grid_h, tile_width, tile_height
-        );
+        println!("Target image: {img_width}x{img_height}");
+        println!("Grid: {grid_w}x{grid_h}, Tile size: {tile_width}x{tile_height}");
 
         // Initialize tracking and visualization
         let total_tiles = (grid_w * grid_h) as usize;
@@ -668,7 +665,7 @@ impl MosaicGenerator {
         }
 
         // Save the output
-        println!("Saving output to {:?}...", output_path);
+        println!("Saving output to {output_path:?}...");
         if let Some(parent) = output_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -719,7 +716,7 @@ impl MosaicGenerator {
         let src_width = src_image.width() as usize;
         let src_height = src_image.height() as usize;
 
-        let mut src_fir = FirImage::from_vec_u8(
+        let src_fir = FirImage::from_vec_u8(
             src_width as u32,
             src_height as u32,
             src_image.into_raw(),
@@ -735,7 +732,7 @@ impl MosaicGenerator {
         );
 
         let mut resizer = Resizer::new();
-        resizer.resize(&mut src_fir, &mut dst_fir, &ResizeOptions::new())?;
+        resizer.resize(&src_fir, &mut dst_fir, &ResizeOptions::new())?;
 
         Ok(ImageBuffer::from_raw(width, height, dst_fir.into_vec()).unwrap())
     }
@@ -750,7 +747,7 @@ fn main() -> Result<()> {
     let target_aspect = width as f32 / height as f32;
     drop(target_img);
 
-    println!("Target aspect ratio: {:.3}", target_aspect);
+    println!("Target aspect ratio: {target_aspect:.3}");
 
     // Initialize generator
     let mut generator = MosaicGenerator::new(

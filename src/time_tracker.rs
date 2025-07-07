@@ -69,11 +69,11 @@ impl TimeTracker {
         let millis = duration.subsec_millis();
 
         if hours > 0 {
-            format!("{}h {:02}m {:02}s", hours, minutes, seconds)
+            format!("{hours}h {minutes:02}m {seconds:02}s")
         } else if minutes > 0 {
-            format!("{}m {:02}s", minutes, seconds)
+            format!("{minutes}m {seconds:02}s")
         } else {
-            format!("{}.{:03}s", seconds, millis)
+            format!("{seconds}.{millis:03}s")
         }
     }
 

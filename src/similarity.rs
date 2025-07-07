@@ -41,6 +41,12 @@ pub struct SimilarityDatabase {
     similarities: Vec<f32>,
 }
 
+impl Default for SimilarityDatabase {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SimilarityDatabase {
     pub fn new() -> Self {
         Self {
@@ -120,7 +126,7 @@ impl SimilarityDatabase {
     pub fn load_or_new(path: &Path) -> Self {
         match Self::load_from_file(path) {
             Ok(db) => {
-                println!("Loaded similarity database from {:?}", path);
+                println!("Loaded similarity database from {path:?}");
                 db
             }
             Err(_) => {

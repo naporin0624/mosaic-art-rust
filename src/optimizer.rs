@@ -38,7 +38,7 @@ impl<'a> MosaicOptimizer<'a> {
     }
 
     /// Optimize the mosaic placement using simulated annealing
-    pub fn optimize(&self, grid: &mut Vec<Vec<Option<PathBuf>>>) -> OptimizationResult {
+    pub fn optimize(&self, grid: &mut [Vec<Option<PathBuf>>]) -> OptimizationResult {
         let grid_height = grid.len();
         if grid_height == 0 {
             return OptimizationResult::default();
@@ -53,10 +53,7 @@ impl<'a> MosaicOptimizer<'a> {
         let mut accepted_count = 0;
         let mut temperature = self.config.initial_temperature;
 
-        println!(
-            "Starting optimization with initial cost: {:.3}",
-            initial_cost
-        );
+        println!("Starting optimization with initial cost: {initial_cost:.3}");
 
         for iteration in 0..self.config.max_iterations {
             // Select two random positions
@@ -118,8 +115,7 @@ impl<'a> MosaicOptimizer<'a> {
         }
 
         println!(
-            "Optimization complete: final cost={:.3}, improvements={}, accepted={}",
-            current_cost, improved_count, accepted_count
+            "Optimization complete: final cost={current_cost:.3}, improvements={improved_count}, accepted={accepted_count}"
         );
 
         OptimizationResult {
@@ -135,7 +131,7 @@ impl<'a> MosaicOptimizer<'a> {
     /// Perform a greedy optimization (only accept improvements)
     pub fn optimize_greedy(
         &self,
-        grid: &mut Vec<Vec<Option<PathBuf>>>,
+        grid: &mut [Vec<Option<PathBuf>>],
         max_iterations: usize,
     ) -> OptimizationResult {
         let grid_height = grid.len();
@@ -149,10 +145,7 @@ impl<'a> MosaicOptimizer<'a> {
         let initial_cost = current_cost;
         let mut improved_count = 0;
 
-        println!(
-            "Starting greedy optimization with initial cost: {:.3}",
-            initial_cost
-        );
+        println!("Starting greedy optimization with initial cost: {initial_cost:.3}");
 
         for iteration in 0..max_iterations {
             let pos1 =
@@ -191,8 +184,7 @@ impl<'a> MosaicOptimizer<'a> {
         }
 
         println!(
-            "Greedy optimization complete: final cost={:.3}, improvements={}",
-            current_cost, improved_count
+            "Greedy optimization complete: final cost={current_cost:.3}, improvements={improved_count}"
         );
 
         OptimizationResult {

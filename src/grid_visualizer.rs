@@ -146,7 +146,7 @@ impl GridVisualizer {
                     TileStatus::InProgress => '●',
                     TileStatus::Completed => '■',
                 };
-                print!("{}", symbol);
+                print!("{symbol}");
             }
 
             // Add current position indicator
@@ -219,10 +219,7 @@ impl GridVisualizer {
             .filter(|&status| *status == TileStatus::InProgress)
             .count();
 
-        format!(
-            "Progress: {}/{} tiles completed, {} in progress",
-            completed, total, in_progress
-        )
+        format!("Progress: {completed}/{total} tiles completed, {in_progress} in progress")
     }
 
     pub fn set_display_limits(&mut self, max_width: usize, max_height: usize) {

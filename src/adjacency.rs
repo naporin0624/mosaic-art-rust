@@ -64,7 +64,7 @@ impl<'a> AdjacencyPenaltyCalculator<'a> {
         &self,
         candidate_path: &Path,
         position: GridPosition,
-        grid: &Vec<Vec<Option<std::path::PathBuf>>>,
+        grid: &[Vec<Option<std::path::PathBuf>>],
         grid_width: usize,
         grid_height: usize,
     ) -> f32 {
@@ -88,7 +88,7 @@ impl<'a> AdjacencyPenaltyCalculator<'a> {
     }
 
     /// Calculate total adjacency cost for the entire grid
-    pub fn calculate_total_cost(&self, grid: &Vec<Vec<Option<std::path::PathBuf>>>) -> f32 {
+    pub fn calculate_total_cost(&self, grid: &[Vec<Option<std::path::PathBuf>>]) -> f32 {
         let grid_height = grid.len();
         if grid_height == 0 {
             return 0.0;
@@ -132,7 +132,7 @@ impl<'a> AdjacencyPenaltyCalculator<'a> {
     /// Calculate the change in cost if two positions are swapped
     pub fn calculate_swap_delta(
         &self,
-        grid: &Vec<Vec<Option<std::path::PathBuf>>>,
+        grid: &[Vec<Option<std::path::PathBuf>>],
         pos1: GridPosition,
         pos2: GridPosition,
     ) -> f32 {
