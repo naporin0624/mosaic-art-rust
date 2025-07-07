@@ -83,38 +83,45 @@ cargo run --release -- \
 The application is organized into several modules, each handling a specific aspect of mosaic generation:
 
 1. **main.rs**: CLI entry point and orchestration
+
    - Parses command-line arguments using clap
    - Manages the overall mosaic generation pipeline
    - Handles material loading with aspect ratio filtering
    - Implements the core `MosaicGenerator` struct
 
 2. **lib.rs**: Core traits and data structures
+
    - `Tile`: Represents a material image with its path, Lab color, and aspect ratio
    - `MosaicGenerator` trait: Defines core color calculation methods
    - `UsageTracker`: Tracks and limits how many times each material is used
    - `MosaicGeneratorImpl`: Implements Lab color space calculations
 
 3. **similarity.rs**: Material similarity database
+
    - Caches Lab colors and similarity scores between materials
    - Persists to JSON for faster subsequent runs
    - Enables adjacency penalty calculations
 
 4. **adjacency.rs**: Adjacency constraint system
+
    - `GridPosition`: Represents positions in the mosaic grid
    - `AdjacencyPenaltyCalculator`: Calculates penalties for placing similar images adjacent to each other
    - Works with the similarity database to prevent repetitive patterns
 
 5. **optimizer.rs**: Post-placement optimization
+
    - Uses simulated annealing to improve tile placement
    - Swaps tiles to minimize total adjacency penalty
    - Configurable temperature decay and iteration count
 
 6. **color_adjustment.rs**: Color matching enhancement
+
    - Adjusts material image colors to better match target regions
    - Uses optimal brightness and color shift calculations
    - Preserves image details while improving color accuracy
 
 7. **grid_visualizer.rs**: Real-time progress visualization
+
    - Shows ASCII grid of mosaic generation progress
    - Updates in real-time as tiles are placed
 
@@ -125,15 +132,18 @@ The application is organized into several modules, each handling a specific aspe
 ### Key Algorithms and Data Structures
 
 1. **Color Matching**: Uses Lab color space (perceptually uniform) with k-d tree for O(log n) nearest neighbor search
+
    - k-d tree bucket size: 256 (optimized for performance)
    - Custom `BigBucketKdTree` type definition
 
 2. **Material Selection**: Multi-factor scoring considering:
+
    - Color distance (primary factor)
    - Usage count (prevents overuse via `UsageTracker`)
    - Adjacency penalty (prevents similar images from clustering)
 
 3. **Optimization**: Simulated annealing with configurable cooling schedule
+
    - Temperature decay rate: 0.95 per iteration
    - Acceptance probability for worse solutions
 
@@ -156,27 +166,33 @@ The application is organized into several modules, each handling a specific aspe
 ## CLI Options Reference
 
 ### Required Options
+
 - `--target` / `-t`: Target image path
 - `--material-src` / `-m`: Material images directory
 - `--output` / `-o`: Output file path
 
 ### Grid Settings
+
 - `--grid-w`: Number of tiles horizontally (default: 50)
 - `--grid-h`: Number of tiles vertically (default: 28)
 
 ### Material Selection
+
 - `--max-materials`: Maximum number of materials to use (default: 500)
 - `--aspect-tolerance`: Aspect ratio tolerance (default: 0.1)
 
 ### Placement Constraints
+
 - `--max-usage-per-image`: Maximum times each image can be used (default: 3)
 - `--adjacency-penalty-weight`: Weight for adjacency penalty (default: 0.3, 0.0 to disable)
 
 ### Optimization Settings
+
 - `--enable-optimization`: Enable post-placement optimization (default: true)
 - `--optimization-iterations`: Maximum optimization iterations (default: 1000)
 
 ### Other Settings
+
 - `--similarity-db`: Path to similarity database (default: "similarity_db.json")
 - `--rebuild-similarity-db`: Force rebuild of similarity database
 - `--color-adjustment-strength`: Color adjustment strength (0.0-1.0, default: 0.3)
@@ -205,6 +221,7 @@ See `.claude/commands/mosaic.md` for details.
 ## Testing Strategy
 
 The codebase includes unit tests for each module:
+
 - Color calculation tests (Lab conversion accuracy)
 - Aspect ratio matching logic
 - k-d tree nearest neighbor correctness
@@ -226,7 +243,7 @@ mosaic-rust/
 │   ├── similarity.rs        # Similarity database with JSON persistence
 │   ├── adjacency.rs         # Adjacency constraints and penalty calculation
 │   ├── optimizer.rs         # Simulated annealing optimization
-│   ├── color_adjustment.rs  # HSV color adjustment algorithms  
+│   ├── color_adjustment.rs  # HSV color adjustment algorithms
 │   ├── grid_visualizer.rs   # ASCII progress display
 │   └── time_tracker.rs      # Performance tracking and ETA
 ├── .claude/
@@ -250,7 +267,7 @@ mosaic-rust/
 The project includes a comprehensive GitHub Actions workflow:
 
 - **Check**: `cargo check` validation
-- **Test**: Full test suite execution  
+- **Test**: Full test suite execution
 - **Format**: `cargo fmt --all -- --check`
 - **Clippy**: Linting with `cargo clippy -- -D clippy::all -A clippy::too_many_arguments`
 - **Coverage**: Code coverage via `cargo-tarpaulin` with codecov.io integration

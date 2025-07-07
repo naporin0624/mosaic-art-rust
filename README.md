@@ -25,8 +25,8 @@ Transform any image into a detailed mosaic composed of thousands of smaller imag
 
 <div align="center">
 
-| Original Image | Generated Mosaic (24,000 tiles) |
-|:--------------:|:-------------------------------:|
+|                          Original Image                           |                       Generated Mosaic (24,000 tiles)                       |
+| :---------------------------------------------------------------: | :-------------------------------------------------------------------------: |
 | <img src="examples/mosaic.png" width="400" alt="Original Image"/> | <img src="examples/mosaic_24000_4.png" width="400" alt="Generated Mosaic"/> |
 
 </div>
@@ -104,11 +104,12 @@ cargo build --release
 
 This example demonstrates the generator's capabilities using a birthday artwork as the target image, showcasing the detailed color matching and optimization features.
 
-| Original Image | Generated Mosaic (24,000 tiles) |
-|:--------------:|:-------------------------------:|
+|                  Original Image                   |         Generated Mosaic (24,000 tiles)          |
+| :-----------------------------------------------: | :----------------------------------------------: |
 | ![Original Birthday Artwork](examples/mosaic.png) | ![Generated Mosaic](examples/mosaic_24000_4.png) |
 
 ### Command Used
+
 ```bash
 ./target/release/mosaic-rust \
   --target ./mosaic.png \
@@ -129,54 +130,54 @@ This high-resolution mosaic was created for the [Ristill Birthday 2025](https://
 
 ### Required Arguments
 
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--target` | `-t` | Path to the target image |
-| `--material-src` | `-m` | Directory containing material images |
-| `--output` | `-o` | Output mosaic image path |
+| Option           | Short | Description                          |
+| ---------------- | ----- | ------------------------------------ |
+| `--target`       | `-t`  | Path to the target image             |
+| `--material-src` | `-m`  | Directory containing material images |
+| `--output`       | `-o`  | Output mosaic image path             |
 
 ### Grid Configuration
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--grid-w` | Number of tiles horizontally | 50 |
-| `--grid-h` | Number of tiles vertically | 28 |
+| Option     | Description                  | Default |
+| ---------- | ---------------------------- | ------- |
+| `--grid-w` | Number of tiles horizontally | 50      |
+| `--grid-h` | Number of tiles vertically   | 28      |
 
 ### Material Selection
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--max-materials` | Maximum number of materials to load | 500 |
-| `--aspect-tolerance` | Aspect ratio tolerance (0.1 = ±10%) | 0.1 |
+| Option               | Description                         | Default |
+| -------------------- | ----------------------------------- | ------- |
+| `--max-materials`    | Maximum number of materials to load | 500     |
+| `--aspect-tolerance` | Aspect ratio tolerance (0.1 = ±10%) | 0.1     |
 
 ### Placement Constraints
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--max-usage-per-image` | Maximum times each material can be used | 3 |
-| `--adjacency-penalty-weight` | Weight for adjacency penalty (0.0-1.0) | 0.3 |
+| Option                       | Description                             | Default |
+| ---------------------------- | --------------------------------------- | ------- |
+| `--max-usage-per-image`      | Maximum times each material can be used | 3       |
+| `--adjacency-penalty-weight` | Weight for adjacency penalty (0.0-1.0)  | 0.3     |
 
 ### Optimization Settings
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--enable-optimization` | Enable simulated annealing optimization | true |
-| `--optimization-iterations` | Maximum optimization iterations | 1000 |
+| Option                      | Description                             | Default |
+| --------------------------- | --------------------------------------- | ------- |
+| `--enable-optimization`     | Enable simulated annealing optimization | true    |
+| `--optimization-iterations` | Maximum optimization iterations         | 1000    |
 
 ### Performance & Quality
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--similarity-db` | Path to similarity database JSON | similarity_db.json |
-| `--rebuild-similarity-db` | Force rebuild of similarity database | false |
-| `--color-adjustment-strength` | Color adjustment strength (0.0-1.0) | 0.3 |
+| Option                        | Description                          | Default            |
+| ----------------------------- | ------------------------------------ | ------------------ |
+| `--similarity-db`             | Path to similarity database JSON     | similarity_db.json |
+| `--rebuild-similarity-db`     | Force rebuild of similarity database | false              |
+| `--color-adjustment-strength` | Color adjustment strength (0.0-1.0)  | 0.3                |
 
 ### Display Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--show-time` | Show processing time and ETA | true |
-| `--show-grid` | Show real-time ASCII grid progress | true |
+| Option        | Description                        | Default |
+| ------------- | ---------------------------------- | ------- |
+| `--show-time` | Show processing time and ETA       | true    |
+| `--show-grid` | Show real-time ASCII grid progress | true    |
 
 ## Advanced Examples
 
@@ -241,9 +242,10 @@ This high-resolution mosaic was created for the [Ristill Birthday 2025](https://
 ### Color Space & Matching
 
 The generator uses the **Lab color space** for perceptually uniform color matching:
-- L*: Lightness (0-100)
-- a*: Green-red color component
-- b*: Blue-yellow color component
+
+- L\*: Lightness (0-100)
+- a\*: Green-red color component
+- b\*: Blue-yellow color component
 
 A **k-d tree** with bucket size 256 provides O(log n) nearest neighbor search performance.
 
@@ -256,6 +258,7 @@ score = color_distance * (1 + usage_penalty) * (1 + adjacency_penalty)
 ```
 
 Where:
+
 - `color_distance`: Euclidean distance in Lab space
 - `usage_penalty`: Increases with each use of the material
 - `adjacency_penalty`: Based on similarity to adjacent tiles
@@ -263,6 +266,7 @@ Where:
 ### Optimization Phase
 
 The simulated annealing algorithm:
+
 1. Initial temperature: 1.0
 2. Cooling rate: 0.95 per iteration
 3. Acceptance probability: `exp(-delta / temperature)`
@@ -278,24 +282,29 @@ The simulated annealing algorithm:
 ## Processing Pipeline
 
 1. **Initialization**
+
    - Load materials with parallel processing
    - Filter by aspect ratio (with fallback)
    - Build/load similarity database
 
 2. **Indexing**
+
    - Calculate Lab colors for all materials
    - Build k-d tree for fast searching
 
 3. **Grid Generation**
+
    - Divide target into grid cells
    - Calculate average Lab color per cell
 
 4. **Material Placement**
+
    - Find best material for each cell
    - Consider all constraints (usage, adjacency)
    - Apply color adjustment if enabled
 
 5. **Optimization** (if enabled)
+
    - Run simulated annealing
    - Swap tiles to improve placement
 
@@ -306,18 +315,21 @@ The simulated annealing algorithm:
 ## Performance Tips
 
 ### For Fastest Processing
+
 - Use `--enable-optimization false`
 - Set `--adjacency-penalty-weight 0.0`
 - Disable visualization with `--show-grid false`
 - Limit materials with `--max-materials 200`
 
 ### For Best Quality
+
 - Increase grid resolution (e.g., 100x75 or higher)
 - Use more materials (`--max-materials 2000+`)
 - Enable color adjustment (`--color-adjustment-strength 0.4-0.6`)
 - Increase optimization iterations (`--optimization-iterations 5000+`)
 
 ### For Memory Efficiency
+
 - Limit materials if RAM is constrained
 - Use smaller grid sizes
 - Disable similarity database with `--rebuild-similarity-db`
@@ -371,6 +383,7 @@ cargo build --release
 ```
 
 The release profile includes:
+
 - Link Time Optimization (LTO)
 - Maximum optimization level (3)
 - Single codegen unit for better optimization
@@ -435,6 +448,7 @@ The coverage badge will be available at: `https://naporin0624.github.io/mosaic-a
 ## Contributing
 
 Contributions are welcome! Please ensure:
+
 - Code passes `cargo test`
 - Code is formatted with `cargo fmt`
 - No warnings from `cargo clippy`

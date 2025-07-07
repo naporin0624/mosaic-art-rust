@@ -2,7 +2,7 @@ name: Coverage Badge
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   coverage:
@@ -38,7 +38,7 @@ jobs:
           else
             color="brightgreen"
           fi
-          
+
           # Generate SVG badge using shields.io
           curl -s "https://img.shields.io/badge/coverage-${pct}%25-${color}?style=flat-square" -o coverage.svg
           echo "Generated coverage badge: ${pct}% (${color})"
