@@ -3,7 +3,7 @@
 <div align="center">
 
 [![CI](https://github.com/naporin0624/mosaic-art-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/naporin0624/mosaic-art-rust/actions/workflows/ci.yml)
-[![Coverage](https://naporin0624.github.io/mosaic-art-rust/badges/coverage.svg)](https://naporin0624.github.io/mosaic-art-rust/badges/coverage.svg)
+[![Coverage](https://naporin0624.github.io/mosaic-art-rust/coverage.svg)](https://naporin0624.github.io/mosaic-art-rust/coverage.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust Version](https://img.shields.io/badge/rust-1.88.0%2B-blue.svg)](https://www.rust-lang.org)
 [![GitHub stars](https://img.shields.io/github/stars/naporin0624/mosaic-art-rust?style=flat&color=yellow)](https://github.com/naporin0624/mosaic-art-rust/stargazers)
@@ -427,11 +427,11 @@ The project includes automated badge generation for build status and code covera
 
 ### Code Coverage Badge Setup
 
-1. **Enable GitHub Pages**: Go to Settings → Pages → Source: Deploy from a branch → Branch: `gh-pages` → Save
+1. **Enable GitHub Pages**: Go to Settings → Pages → Source: **GitHub Actions** → Save
 2. **Badge URLs**: The badges are already configured for `naporin0624/mosaic-art-rust`
-3. **First Run**: Push changes to trigger the coverage workflow, which will create the `gh-pages` branch automatically
+3. **First Run**: Push changes to trigger the coverage workflow, which will automatically deploy the badge
 
-The coverage badge will be available at: `https://naporin0624.github.io/mosaic-art-rust/badges/coverage.svg`
+The coverage badge will be available at: `https://naporin0624.github.io/mosaic-art-rust/coverage.svg`
 
 ### Available Badges
 
