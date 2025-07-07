@@ -1,0 +1,53 @@
+name: Coverage Badge
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    container:
+      image: xd009642/tarpaulin:latest
+      options: --security-opt seccomp=unconfined
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Run cargo-tarpaulin
+        id: coverage
+        run: |
+          cargo tarpaulin --workspace --out Json --output-dir coverage --timeout 120
+          PCT=$(jq -r '.[0].percent_covered | floor' coverage/*.json)
+          echo "coverage=$PCT" >> "$GITHUB_OUTPUT"
+          echo "Coverage: $PCT%"
+
+      - name: Generate coverage badge
+        run: |
+          pct=${{ steps.coverage.outputs.coverage }}
+          # Choose color based on coverage percentage
+          if [ "$pct" -lt 50 ]; then
+            color="red"
+          elif [ "$pct" -lt 70 ]; then
+            color="orange"  
+          elif [ "$pct" -lt 80 ]; then
+            color="yellow"
+          elif [ "$pct" -lt 90 ]; then
+            color="yellowgreen"
+          else
+            color="brightgreen"
+          fi
+          
+          # Generate SVG badge using shields.io
+          curl -s "https://img.shields.io/badge/coverage-${pct}%25-${color}?style=flat-square" -o coverage.svg
+          echo "Generated coverage badge: ${pct}% (${color})"
+
+      - name: Deploy badge to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          destination_dir: badges
+          publish_branch: gh-pages
+          keep_files: true
