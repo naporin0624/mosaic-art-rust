@@ -156,7 +156,6 @@ pub fn calculate_optimal_adjustment(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::ImageBuffer;
 
     #[test]
     fn test_default_adjustment() {
