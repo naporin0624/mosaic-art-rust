@@ -57,7 +57,7 @@ Transform any image into a detailed mosaic composed of thousands of smaller imag
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/naporin0624/mosaic-art-rust
 cd mosaic-rust
 
 # Set up development environment
