@@ -15,6 +15,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Install jq
+        run: |
+          apt-get update && apt-get install -y jq
+
       - name: Run cargo-tarpaulin
         id: coverage
         run: |
