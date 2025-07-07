@@ -6,9 +6,9 @@ on:
 
 # GitHub Pages deployment requires these permissions
 permissions:
-  contents: read   # so the job can checkout code
-  pages: write     # must be write so the job can create a Pages deployment
-  id-token: write  # needed so the job can request an OIDC token for the Pages API
+  contents: read # so the job can checkout code
+  pages: write # must be write so the job can create a Pages deployment
+  id-token: write # needed so the job can request an OIDC token for the Pages API
 
 jobs:
   coverage:
@@ -16,6 +16,9 @@ jobs:
     container:
       image: xd009642/tarpaulin:latest
       options: --security-opt seccomp=unconfined
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout sources
@@ -29,12 +32,12 @@ jobs:
         id: coverage
         run: |
           cargo tarpaulin --workspace --out Json --output-dir coverage --timeout 120 --verbose --run-types Tests 2>&1 | tee tarpaulin_output.txt
-          
+
           # Debug: show JSON structure
           echo "=== JSON file content ==="
           cat coverage/*.json
           echo "========================="
-          
+
           # Check if percent_covered exists and is not null
           JSON_FILE=$(ls coverage/*.json | head -1)
           if jq -e '.percent_covered != null' "$JSON_FILE" > /dev/null 2>&1; then
@@ -49,7 +52,7 @@ jobs:
             fi
             echo "Parsed coverage from text: $PCT%"
           fi
-          
+
           echo "coverage=$PCT" >> "$GITHUB_OUTPUT"
           echo "Final coverage: $PCT%"
 
@@ -73,11 +76,15 @@ jobs:
           curl -s "https://img.shields.io/badge/coverage-${pct}%25-${color}?style=flat-square" -o coverage.svg
           echo "Generated coverage badge: ${pct}% (${color})"
 
-      - name: Deploy badge to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
-          destination_dir: badges
-          publish_branch: gh-pages
-          keep_files: true
+          path: .
+          name: github-pages
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
