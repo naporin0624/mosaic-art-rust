@@ -22,10 +22,30 @@ jobs:
       - name: Run cargo-tarpaulin
         id: coverage
         run: |
-          cargo tarpaulin --workspace --out Json --output-dir coverage --timeout 120
-          PCT=$(jq -r '.percent_covered | floor' coverage/*.json)
+          cargo tarpaulin --workspace --out Json --output-dir coverage --timeout 120 --verbose --run-types Tests 2>&1 | tee tarpaulin_output.txt
+          
+          # Debug: show JSON structure
+          echo "=== JSON file content ==="
+          cat coverage/*.json
+          echo "========================="
+          
+          # Check if percent_covered exists and is not null
+          JSON_FILE=$(ls coverage/*.json | head -1)
+          if jq -e '.percent_covered != null' "$JSON_FILE" > /dev/null 2>&1; then
+            PCT=$(jq -r '.percent_covered | floor' "$JSON_FILE")
+            echo "Parsed coverage from JSON: $PCT%"
+          else
+            echo "JSON percent_covered is null or missing, parsing from text output"
+            PCT=$(grep -oP '\d+\.\d+(?=% coverage)' tarpaulin_output.txt | head -1 | cut -d. -f1)
+            if [ -z "$PCT" ]; then
+              echo "Could not parse coverage from text, defaulting to 0"
+              PCT=0
+            fi
+            echo "Parsed coverage from text: $PCT%"
+          fi
+          
           echo "coverage=$PCT" >> "$GITHUB_OUTPUT"
-          echo "Coverage: $PCT%"
+          echo "Final coverage: $PCT%"
 
       - name: Generate coverage badge
         run: |
