@@ -12,6 +12,7 @@ This is a high-performance mosaic art generator written in Rust. It creates mosa
 - Cargo 0.89.0
 - Environment management: mise (.mise.toml)
 - RUST_BACKTRACE=1 enabled for debugging
+- GitHub Actions CI/CD pipeline configured (.github/workflows/ci.yml)
 
 ## Common Development Commands
 
@@ -41,6 +42,12 @@ cargo fmt
 
 # Lint code
 cargo clippy
+
+# Lint with CI-specific settings (allows too_many_arguments)
+cargo clippy -- -D clippy::all -A clippy::too_many_arguments
+
+# Code coverage (requires cargo-tarpaulin)
+cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
 ```
 
 ### Running the Application
@@ -208,3 +215,50 @@ The codebase includes unit tests for each module:
 - Color adjustment algorithms
 
 Run tests with `cargo test` or specific tests with `cargo test <test_name>`.
+
+## Directory Structure
+
+```
+mosaic-rust/
+├── src/
+│   ├── main.rs              # CLI entry point and MosaicGenerator impl
+│   ├── lib.rs               # Core traits, Tile struct, and UsageTracker
+│   ├── similarity.rs        # Similarity database with JSON persistence
+│   ├── adjacency.rs         # Adjacency constraints and penalty calculation
+│   ├── optimizer.rs         # Simulated annealing optimization
+│   ├── color_adjustment.rs  # HSV color adjustment algorithms  
+│   ├── grid_visualizer.rs   # ASCII progress display
+│   └── time_tracker.rs      # Performance tracking and ETA
+├── .claude/
+│   └── commands/
+│       ├── mosaic.md        # Custom mosaic command generator
+│       ├── commit-changes.md # Git commit helper
+│       └── release.md       # Release management
+├── .github/workflows/ci.yml # GitHub Actions CI pipeline
+├── .mise.toml               # Development environment config
+├── Cargo.toml               # Dependencies and build config
+├── CLAUDE.md                # AI assistant documentation
+├── README.md                # Project documentation with examples
+├── LICENSE                  # MIT license
+├── sozai/                   # Sample material images (VRChat screenshots)
+├── examples/                # Example output images
+└── similarity_db.json       # Cached similarity database (generated)
+```
+
+## CI/CD Pipeline
+
+The project includes a comprehensive GitHub Actions workflow:
+
+- **Check**: `cargo check` validation
+- **Test**: Full test suite execution  
+- **Format**: `cargo fmt --all -- --check`
+- **Clippy**: Linting with `cargo clippy -- -D clippy::all -A clippy::too_many_arguments`
+- **Coverage**: Code coverage via `cargo-tarpaulin` with codecov.io integration
+
+## Material Image Requirements
+
+- Supported formats: PNG, JPG, JPEG (via `image` crate)
+- Aspect ratio filtering with configurable tolerance (default: ±10%)
+- Parallel loading via Rayon for performance
+- Automatic Lab color calculation and similarity database caching
+- Example dataset: VRChat screenshots in `sozai/` directory (7680×4320 and 4320×7680)
