@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
 
+# GitHub Pages deployment requires these permissions
+permissions:
+  contents: read   # so the job can checkout code
+  pages: write     # must be write so the job can create a Pages deployment
+  id-token: write  # needed so the job can request an OIDC token for the Pages API
+
 jobs:
   coverage:
     runs-on: ubuntu-latest
