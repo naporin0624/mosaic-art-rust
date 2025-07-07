@@ -23,7 +23,7 @@ jobs:
         id: coverage
         run: |
           cargo tarpaulin --workspace --out Json --output-dir coverage --timeout 120
-          PCT=$(jq -r '.[0].percent_covered | floor' coverage/*.json)
+          PCT=$(jq -r '.percent_covered | floor' coverage/*.json)
           echo "coverage=$PCT" >> "$GITHUB_OUTPUT"
           echo "Coverage: $PCT%"
 
