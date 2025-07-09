@@ -220,11 +220,11 @@ mod tests {
     fn test_serializable_lab_conversion() {
         let lab = Lab::new(50.0, 25.0, -15.0);
         let serializable: SerializableLab = lab.into();
-        
+
         assert_eq!(serializable.l, 50.0);
         assert_eq!(serializable.a, 25.0);
         assert_eq!(serializable.b, -15.0);
-        
+
         let converted_back: Lab = serializable.into();
         assert_eq!(converted_back.l, 50.0);
         assert_eq!(converted_back.a, 25.0);
@@ -235,17 +235,17 @@ mod tests {
     fn test_similarity_database_get_lab_color() {
         let mut db = SimilarityDatabase::new();
         let test_lab = Lab::new(50.0, 25.0, -15.0);
-        
+
         db.add_tile(PathBuf::from("test.png"), test_lab);
-        
+
         let retrieved_lab = db.get_lab_color(Path::new("test.png"));
         assert!(retrieved_lab.is_some());
-        
+
         let retrieved_lab = retrieved_lab.unwrap();
         assert_eq!(retrieved_lab.l, 50.0);
         assert_eq!(retrieved_lab.a, 25.0);
         assert_eq!(retrieved_lab.b, -15.0);
-        
+
         // Test with non-existent path
         let nonexistent = db.get_lab_color(Path::new("nonexistent.png"));
         assert!(nonexistent.is_none());
@@ -253,25 +253,24 @@ mod tests {
 
     #[test]
     fn test_similarity_database_save_load() {
-        
         let mut db = SimilarityDatabase::new();
         db.add_tile(PathBuf::from("tile1.png"), Lab::new(50.0, 0.0, 0.0));
         db.add_tile(PathBuf::from("tile2.png"), Lab::new(60.0, 10.0, 10.0));
         db.build_similarities();
-        
+
         let temp_file = NamedTempFile::new().unwrap();
-        
+
         // Save to file
         let save_result = db.save_to_file(temp_file.path());
         assert!(save_result.is_ok());
-        
+
         // Load from file
         let loaded_db = SimilarityDatabase::load_from_file(temp_file.path());
         assert!(loaded_db.is_ok());
-        
+
         let loaded_db = loaded_db.unwrap();
         assert_eq!(loaded_db.lab_colors.len(), 2);
-        
+
         // Test that similarity is preserved
         let sim = loaded_db.get_similarity(Path::new("tile1.png"), Path::new("tile2.png"));
         assert!(sim.is_some());
@@ -280,29 +279,27 @@ mod tests {
 
     #[test]
     fn test_similarity_database_load_or_new() {
-        
         // Test loading from nonexistent file - should create new
         let nonexistent_path = Path::new("nonexistent_db.json");
         let db = SimilarityDatabase::load_or_new(nonexistent_path);
         assert_eq!(db.lab_colors.len(), 0);
-        
+
         // Test loading from existing file
         let mut original_db = SimilarityDatabase::new();
         original_db.add_tile(PathBuf::from("test.png"), Lab::new(50.0, 0.0, 0.0));
-        
+
         let temp_file = NamedTempFile::new().unwrap();
         original_db.save_to_file(temp_file.path()).unwrap();
-        
+
         let loaded_db = SimilarityDatabase::load_or_new(temp_file.path());
         assert_eq!(loaded_db.lab_colors.len(), 1);
     }
 
     #[test]
     fn test_similarity_database_load_from_invalid_file() {
-        
         let temp_file = NamedTempFile::new().unwrap();
         std::fs::write(temp_file.path(), "invalid json").unwrap();
-        
+
         let result = SimilarityDatabase::load_from_file(temp_file.path());
         assert!(result.is_err());
     }
@@ -310,11 +307,11 @@ mod tests {
     #[test]
     fn test_similarity_database_empty() {
         let db = SimilarityDatabase::new();
-        
+
         // Empty database should not have any similarities
         let sim = db.get_similarity(Path::new("tile1.png"), Path::new("tile2.png"));
         assert!(sim.is_none());
-        
+
         // Empty database should not have any colors
         let color = db.get_lab_color(Path::new("tile1.png"));
         assert!(color.is_none());
@@ -325,11 +322,11 @@ mod tests {
         let mut db = SimilarityDatabase::new();
         db.add_tile(PathBuf::from("tile1.png"), Lab::new(50.0, 0.0, 0.0));
         db.build_similarities();
-        
+
         // Single tile should have 0 similarity with itself
         let sim = db.get_similarity(Path::new("tile1.png"), Path::new("tile1.png"));
         assert_eq!(sim, Some(0.0));
-        
+
         // Single tile should not have similarity with non-existent tile
         let sim = db.get_similarity(Path::new("tile1.png"), Path::new("nonexistent.png"));
         assert!(sim.is_none());
@@ -342,21 +339,21 @@ mod tests {
         db.add_tile(PathBuf::from("tile2.png"), Lab::new(60.0, 10.0, 10.0));
         db.add_tile(PathBuf::from("tile3.png"), Lab::new(40.0, -10.0, -10.0));
         db.build_similarities();
-        
+
         // Test all combinations
         let sim12 = db.get_similarity(Path::new("tile1.png"), Path::new("tile2.png"));
         let sim21 = db.get_similarity(Path::new("tile2.png"), Path::new("tile1.png"));
         let sim13 = db.get_similarity(Path::new("tile1.png"), Path::new("tile3.png"));
         let sim23 = db.get_similarity(Path::new("tile2.png"), Path::new("tile3.png"));
-        
+
         assert!(sim12.is_some());
         assert!(sim21.is_some());
         assert!(sim13.is_some());
         assert!(sim23.is_some());
-        
+
         // Similarity should be symmetric
         assert_eq!(sim12, sim21);
-        
+
         // All similarities should be positive
         assert!(sim12.unwrap() > 0.0);
         assert!(sim13.unwrap() > 0.0);
@@ -368,13 +365,13 @@ mod tests {
         let lab1 = Lab::new(50.0, 0.0, 0.0);
         let lab2 = Lab::new(50.0, 0.0, 0.0);
         let lab3 = Lab::new(60.0, 10.0, 10.0);
-        
+
         // Same color should have 0 Delta E
         assert_eq!(calculate_delta_e_2000(&lab1, &lab2), 0.0);
-        
+
         // Different colors should have positive Delta E
         assert!(calculate_delta_e_2000(&lab1, &lab3) > 0.0);
-        
+
         // Delta E should be symmetric
         assert_eq!(
             calculate_delta_e_2000(&lab1, &lab3),
@@ -386,20 +383,20 @@ mod tests {
     fn test_lab_distance_vs_delta_e_2000() {
         let lab1 = Lab::new(50.0, 0.0, 0.0);
         let lab2 = Lab::new(60.0, 10.0, 10.0);
-        
+
         let euclidean_distance = calculate_lab_distance(&lab1, &lab2);
         let delta_e_2000 = calculate_delta_e_2000(&lab1, &lab2);
-        
+
         // Both should be positive
         assert!(euclidean_distance > 0.0);
         assert!(delta_e_2000 > 0.0);
-        
+
         // Delta E 2000 should be symmetric
         assert_eq!(
             calculate_delta_e_2000(&lab1, &lab2),
             calculate_delta_e_2000(&lab2, &lab1)
         );
-        
+
         // Both methods should return the same value for identical colors
         assert_eq!(calculate_delta_e_2000(&lab1, &lab1), 0.0);
         assert_eq!(calculate_lab_distance(&lab1, &lab1), 0.0);
