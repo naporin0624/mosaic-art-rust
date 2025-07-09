@@ -777,3 +777,405 @@ fn main() -> Result<()> {
     println!("Mosaic saved to {:?}", args.output);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{ImageBuffer, Rgb, RgbImage};
+    use std::path::Path;
+    use tempfile::tempdir;
+
+    fn create_test_image(width: u32, height: u32, color: Rgb<u8>) -> RgbImage {
+        ImageBuffer::from_fn(width, height, |_, _| color)
+    }
+
+    fn create_test_material_dir() -> Result<tempfile::TempDir> {
+        let dir = tempdir()?;
+        
+        // Create a few test images with different colors
+        let red_img = create_test_image(100, 100, Rgb([255, 0, 0]));
+        let green_img = create_test_image(100, 100, Rgb([0, 255, 0]));
+        let blue_img = create_test_image(100, 100, Rgb([0, 0, 255]));
+        
+        red_img.save(dir.path().join("red.png"))?;
+        green_img.save(dir.path().join("green.png"))?;
+        blue_img.save(dir.path().join("blue.png"))?;
+        
+        Ok(dir)
+    }
+
+    #[test]
+    fn test_process_tile_valid_aspect_ratio() {
+        let tempdir = create_test_material_dir().unwrap();
+        let test_path = tempdir.path().join("red.png");
+        let target_aspect = 1.0;
+        let tolerance = 0.1;
+
+        let result = MosaicGenerator::process_tile(&test_path, target_aspect, tolerance);
+        
+        assert!(result.is_ok());
+        let tile = result.unwrap();
+        assert!(tile.is_some());
+        let tile = tile.unwrap();
+        assert_eq!(tile.path, test_path);
+        assert_eq!(tile.aspect_ratio, 1.0);
+        // Red color in Lab space should be approximately l=53, a=80, b=67
+        assert!((tile.lab_color.l - 53.0).abs() < 5.0);
+        assert!((tile.lab_color.a - 80.0).abs() < 5.0);
+        assert!((tile.lab_color.b - 67.0).abs() < 5.0);
+    }
+
+    #[test]
+    fn test_process_tile_invalid_aspect_ratio() {
+        let tempdir = create_test_material_dir().unwrap();
+        let test_path = tempdir.path().join("red.png");
+        let target_aspect = 2.0; // Square image won't match 2:1 aspect ratio
+        let tolerance = 0.1;
+
+        let result = MosaicGenerator::process_tile(&test_path, target_aspect, tolerance);
+        
+        assert!(result.is_ok());
+        let tile = result.unwrap();
+        assert!(tile.is_none());
+    }
+
+    #[test]
+    fn test_process_tile_no_aspect_filter() {
+        let tempdir = create_test_material_dir().unwrap();
+        let test_path = tempdir.path().join("red.png");
+
+        let result = MosaicGenerator::process_tile_no_aspect_filter(&test_path);
+        
+        assert!(result.is_ok());
+        let tile = result.unwrap();
+        assert_eq!(tile.path, test_path);
+        assert_eq!(tile.aspect_ratio, 1.0);
+    }
+
+    #[test]
+    fn test_process_tile_nonexistent_file() {
+        let test_path = Path::new("nonexistent.png");
+        let target_aspect = 1.0;
+        let tolerance = 0.1;
+
+        let result = MosaicGenerator::process_tile(test_path, target_aspect, tolerance);
+        
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_calculate_average_rgb() {
+        let red_img = create_test_image(10, 10, Rgb([255, 0, 0]));
+        let dynamic_img = DynamicImage::ImageRgb8(red_img);
+        
+        let avg_rgb = MosaicGenerator::calculate_average_rgb(&dynamic_img);
+        
+        assert_eq!(avg_rgb, Rgb([255, 0, 0]));
+    }
+
+    #[test]
+    fn test_calculate_average_rgb_mixed_colors() {
+        let mut img = ImageBuffer::new(2, 2);
+        img.put_pixel(0, 0, Rgb([255, 0, 0])); // Red
+        img.put_pixel(1, 0, Rgb([0, 255, 0])); // Green
+        img.put_pixel(0, 1, Rgb([0, 0, 255])); // Blue
+        img.put_pixel(1, 1, Rgb([255, 255, 255])); // White
+        
+        let dynamic_img = DynamicImage::ImageRgb8(img);
+        let avg_rgb = MosaicGenerator::calculate_average_rgb(&dynamic_img);
+        
+        // Average should be (255+0+0+255)/4 = 127.5 for each channel
+        assert_eq!(avg_rgb, Rgb([127, 127, 127]));
+    }
+
+    #[test]
+    fn test_resize_image() {
+        let original = create_test_image(100, 100, Rgb([255, 0, 0]));
+        let dynamic_img = DynamicImage::ImageRgb8(original);
+        
+        let result = MosaicGenerator::resize_image(&dynamic_img, 50, 50);
+        
+        assert!(result.is_ok());
+        let resized = result.unwrap();
+        assert_eq!(resized.width(), 50);
+        assert_eq!(resized.height(), 50);
+        
+        // Check that the color is preserved (approximately)
+        let pixel = resized.get_pixel(25, 25);
+        assert!(pixel[0] > 200); // Should still be mostly red
+        assert!(pixel[1] < 50);  // Should have minimal green
+        assert!(pixel[2] < 50);  // Should have minimal blue
+    }
+
+    #[test]
+    fn test_resize_image_aspect_ratio_change() {
+        let original = create_test_image(100, 100, Rgb([0, 255, 0]));
+        let dynamic_img = DynamicImage::ImageRgb8(original);
+        
+        let result = MosaicGenerator::resize_image(&dynamic_img, 200, 100);
+        
+        assert!(result.is_ok());
+        let resized = result.unwrap();
+        assert_eq!(resized.width(), 200);
+        assert_eq!(resized.height(), 100);
+    }
+
+    #[test]
+    fn test_can_place_at_position_empty_grid() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+        
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        ).unwrap();
+        
+        generator.initialize_grid(3, 3);
+        
+        let test_path = PathBuf::from("test.png");
+        // Should be able to place anywhere on empty grid
+        assert!(generator.can_place_at_position(&test_path, 0, 0));
+        assert!(generator.can_place_at_position(&test_path, 1, 1));
+        assert!(generator.can_place_at_position(&test_path, 2, 2));
+    }
+
+    #[test]
+    fn test_can_place_at_position_adjacent_constraint() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+        
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        ).unwrap();
+        
+        generator.initialize_grid(3, 3);
+        
+        let test_path = PathBuf::from("test.png");
+        
+        // Place tile at (1, 1)
+        generator.placed_tiles[1][1] = Some(test_path.clone());
+        
+        // Should not be able to place the same tile adjacent to itself
+        assert!(!generator.can_place_at_position(&test_path, 0, 1)); // Left
+        assert!(!generator.can_place_at_position(&test_path, 2, 1)); // Right
+        assert!(!generator.can_place_at_position(&test_path, 1, 0)); // Up
+        assert!(!generator.can_place_at_position(&test_path, 1, 2)); // Down
+        
+        // Should be able to place at diagonal positions
+        assert!(generator.can_place_at_position(&test_path, 0, 0));
+        assert!(generator.can_place_at_position(&test_path, 2, 2));
+        
+        // Should be able to place different tile adjacent
+        let other_path = PathBuf::from("other.png");
+        assert!(generator.can_place_at_position(&other_path, 0, 1));
+        assert!(generator.can_place_at_position(&other_path, 2, 1));
+    }
+
+    #[test]
+    fn test_can_place_at_position_boundary_conditions() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+        
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        ).unwrap();
+        
+        generator.initialize_grid(3, 3);
+        
+        let test_path = PathBuf::from("test.png");
+        
+        // Place tile at corner (0, 0)
+        generator.placed_tiles[0][0] = Some(test_path.clone());
+        
+        // Should not be able to place at adjacent positions
+        assert!(!generator.can_place_at_position(&test_path, 1, 0));
+        assert!(!generator.can_place_at_position(&test_path, 0, 1));
+        
+        // Should be able to place at non-adjacent positions
+        assert!(generator.can_place_at_position(&test_path, 2, 0));
+        assert!(generator.can_place_at_position(&test_path, 0, 2));
+        assert!(generator.can_place_at_position(&test_path, 2, 2));
+    }
+
+    #[test]
+    fn test_initialize_grid() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+        
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        ).unwrap();
+        
+        generator.initialize_grid(5, 3);
+        
+        assert_eq!(generator.grid_width, 5);
+        assert_eq!(generator.grid_height, 3);
+        assert_eq!(generator.placed_tiles.len(), 3);
+        assert_eq!(generator.placed_tiles[0].len(), 5);
+        
+        // All positions should be None initially
+        for row in &generator.placed_tiles {
+            for cell in row {
+                assert!(cell.is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn test_load_tiles_with_valid_directory() {
+        let tempdir = create_test_material_dir().unwrap();
+        let target_aspect = 1.0;
+        let tolerance = 0.1;
+        let max_materials = 10;
+        
+        let result = MosaicGenerator::load_tiles(tempdir.path(), target_aspect, tolerance, max_materials);
+        
+        assert!(result.is_ok());
+        let tiles = result.unwrap();
+        assert_eq!(tiles.len(), 3); // We created 3 test images
+        
+        // Check that all tiles have the expected aspect ratio
+        for tile in &tiles {
+            assert_eq!(tile.aspect_ratio, 1.0);
+        }
+    }
+
+    #[test]
+    fn test_load_tiles_with_nonexistent_directory() {
+        let nonexistent_dir = Path::new("nonexistent_directory");
+        let target_aspect = 1.0;
+        let tolerance = 0.1;
+        let max_materials = 10;
+        
+        let result = MosaicGenerator::load_tiles(nonexistent_dir, target_aspect, tolerance, max_materials);
+        
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_tiles_with_max_materials_limit() {
+        let tempdir = create_test_material_dir().unwrap();
+        let target_aspect = 1.0;
+        let tolerance = 0.1;
+        let max_materials = 2; // Limit to 2 materials
+        
+        let result = MosaicGenerator::load_tiles(tempdir.path(), target_aspect, tolerance, max_materials);
+        
+        assert!(result.is_ok());
+        let tiles = result.unwrap();
+        assert_eq!(tiles.len(), 2); // Should be limited to 2 tiles
+    }
+
+    #[test]
+    fn test_load_tiles_fallback_when_no_aspect_match() {
+        let tempdir = create_test_material_dir().unwrap();
+        let target_aspect = 10.0; // No square images will match this
+        let tolerance = 0.1;
+        let max_materials = 10;
+        
+        let result = MosaicGenerator::load_tiles(tempdir.path(), target_aspect, tolerance, max_materials);
+        
+        assert!(result.is_ok());
+        let tiles = result.unwrap();
+        assert_eq!(tiles.len(), 3); // Should fall back to loading all tiles
+    }
+
+    #[test]
+    fn test_generator_new_with_valid_params() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+        
+        let result = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        );
+        
+        assert!(result.is_ok());
+        let generator = result.unwrap();
+        assert_eq!(generator.tiles.len(), 3);
+        assert_eq!(generator.adjacency_penalty_weight, 0.3);
+        assert_eq!(generator.color_adjustment_strength, 0.3);
+    }
+
+    #[test]
+    fn test_generator_new_clamps_color_adjustment() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+        
+        let result = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            1.5, // Should be clamped to 1.0
+        );
+        
+        assert!(result.is_ok());
+        let generator = result.unwrap();
+        assert_eq!(generator.color_adjustment_strength, 1.0);
+    }
+
+    #[test]
+    fn test_generator_new_clamps_negative_color_adjustment() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+        
+        let result = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            -0.5, // Should be clamped to 0.0
+        );
+        
+        assert!(result.is_ok());
+        let generator = result.unwrap();
+        assert_eq!(generator.color_adjustment_strength, 0.0);
+    }
+}
