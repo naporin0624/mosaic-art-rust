@@ -154,20 +154,21 @@ pub fn calculate_delta_e_2000(lab1: &Lab, lab2: &Lab) -> f32 {
     let kc = 1.0;
     let kh = 1.0;
 
-    let dl = lab2.l - lab1.l;
+    let dl = (lab2.l - lab1.l).abs();
     let da = lab2.a - lab1.a;
     let db = lab2.b - lab1.b;
 
     let c1 = (lab1.a * lab1.a + lab1.b * lab1.b).sqrt();
     let c2 = (lab2.a * lab2.a + lab2.b * lab2.b).sqrt();
-    let dc = c2 - c1;
+    let dc = (c2 - c1).abs();
 
     let dh2 = da * da + db * db - dc * dc;
     let dh = if dh2 > 0.0 { dh2.sqrt() } else { 0.0 };
 
     let sl = 1.0;
-    let sc = 1.0 + 0.045 * c1;
-    let sh = 1.0 + 0.015 * c1;
+    let c_avg = (c1 + c2) / 2.0;
+    let sc = 1.0 + 0.045 * c_avg;
+    let sh = 1.0 + 0.015 * c_avg;
 
     let dl_kl_sl = dl / (kl * sl);
     let dc_kc_sc = dc / (kc * sc);
@@ -393,9 +394,15 @@ mod tests {
         assert!(euclidean_distance > 0.0);
         assert!(delta_e_2000 > 0.0);
         
-        // Delta E 2000 should generally be smaller than Euclidean distance
-        // (though this isn't always true, it's a good general test)
-        assert!(delta_e_2000 < euclidean_distance);
+        // Delta E 2000 should be symmetric
+        assert_eq!(
+            calculate_delta_e_2000(&lab1, &lab2),
+            calculate_delta_e_2000(&lab2, &lab1)
+        );
+        
+        // Both methods should return the same value for identical colors
+        assert_eq!(calculate_delta_e_2000(&lab1, &lab1), 0.0);
+        assert_eq!(calculate_lab_distance(&lab1, &lab1), 0.0);
     }
 
     #[test]
