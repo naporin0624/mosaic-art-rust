@@ -9,4 +9,33 @@ square_db.json
 *.jpg
 !examples/*.png
 !examples/*.jpg
+!docs/public/**
 sozai
+
+# Node.js dependencies (for VitePress)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# VitePress build output
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# Package manager lock files (keep package.json and pnpm-lock.yaml)
+package-lock.json
+yarn.lock
+
+# Temporary files
+*.tmp
+*.temp
+.temp/
+.tmp/
+
+# Log files
+*.log
+
+# Coverage reports
+coverage/
+*.lcov

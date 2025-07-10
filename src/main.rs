@@ -1882,4 +1882,807 @@ mod tests {
             .unwrap()
             .starts_with("valid"));
     }
+
+    // CLI Error Handling Tests
+    #[test]
+    fn test_image_loading_error_handling() {
+        // Test with non-existent target image
+        let tempdir = tempdir().unwrap();
+        let nonexistent_target = tempdir.path().join("nonexistent.jpg");
+
+        // This should fail when trying to open the image
+        let result = std::panic::catch_unwind(|| {
+            let _img = image::open(&nonexistent_target).unwrap();
+        });
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_corrupted_target_image_handling() {
+        let tempdir = tempdir().unwrap();
+        let corrupted_image = tempdir.path().join("corrupted.jpg");
+
+        // Create a corrupted image file
+        std::fs::write(&corrupted_image, "this is not an image").unwrap();
+
+        // This should fail when trying to open the corrupted image
+        let result = image::open(&corrupted_image);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_material_directory_handling() {
+        let nonexistent_dir = PathBuf::from("/nonexistent/directory/path");
+
+        let result = MosaicGenerator::load_tiles(&nonexistent_dir, 1.0, 0.1, 10);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_material_directory_handling() {
+        let tempdir = tempdir().unwrap();
+        let empty_dir = tempdir.path().join("empty");
+        std::fs::create_dir(&empty_dir).unwrap();
+
+        let result = MosaicGenerator::load_tiles(&empty_dir, 1.0, 0.1, 10);
+        assert!(result.is_ok());
+
+        let tiles = result.unwrap();
+        assert_eq!(tiles.len(), 0);
+    }
+
+    #[test]
+    fn test_zero_grid_dimensions_handling() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        )
+        .unwrap();
+
+        // Test with zero grid dimensions
+        generator.initialize_grid(0, 0);
+        assert_eq!(generator.grid_width, 0);
+        assert_eq!(generator.grid_height, 0);
+        assert_eq!(generator.placed_tiles.len(), 0);
+    }
+
+    #[test]
+    fn test_extreme_grid_dimensions() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        )
+        .unwrap();
+
+        // Test with very large grid dimensions
+        generator.initialize_grid(1000, 1000);
+        assert_eq!(generator.grid_width, 1000);
+        assert_eq!(generator.grid_height, 1000);
+        assert_eq!(generator.placed_tiles.len(), 1000);
+        assert_eq!(generator.placed_tiles[0].len(), 1000);
+    }
+
+    #[test]
+    fn test_negative_aspect_tolerance() {
+        let tempdir = create_test_material_dir().unwrap();
+        let test_path = tempdir.path().join("red.png");
+
+        // Test with negative aspect tolerance
+        let result = MosaicGenerator::process_tile(&test_path, 1.0, -0.1);
+        assert!(result.is_ok());
+
+        let tile = result.unwrap();
+        assert!(tile.is_none()); // Should not match with negative tolerance
+    }
+
+    #[test]
+    fn test_extreme_aspect_tolerance() {
+        let tempdir = create_test_material_dir().unwrap();
+        let test_path = tempdir.path().join("red.png");
+
+        // Test with very large aspect tolerance
+        let result = MosaicGenerator::process_tile(&test_path, 1.0, 1000.0);
+        assert!(result.is_ok());
+
+        let tile = result.unwrap();
+        assert!(tile.is_some()); // Should match with very large tolerance
+    }
+
+    #[test]
+    fn test_zero_max_materials() {
+        let tempdir = create_test_material_dir().unwrap();
+
+        let result = MosaicGenerator::load_tiles(tempdir.path(), 1.0, 0.1, 0);
+        assert!(result.is_ok());
+
+        let tiles = result.unwrap();
+        assert_eq!(tiles.len(), 0);
+    }
+
+    #[test]
+    fn test_invalid_color_adjustment_strength() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+
+        // Test with values outside 0.0-1.0 range
+        let generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            -0.5, // Should be clamped to 0.0
+        )
+        .unwrap();
+
+        assert_eq!(generator.color_adjustment_strength, 0.0);
+
+        let generator2 = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            2.0, // Should be clamped to 1.0
+        )
+        .unwrap();
+
+        assert_eq!(generator2.color_adjustment_strength, 1.0);
+    }
+
+    #[test]
+    fn test_output_directory_creation_error() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+
+        // Create a simple target image
+        let target_img = create_test_image(40, 40, Rgb([128, 128, 128]));
+        let target_path = tempdir.path().join("target.png");
+        target_img.save(&target_path).unwrap();
+
+        // Try to create output in a path that would require creating parent directories
+        let output_path = tempdir.path().join("deep/nested/path/output.png");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        )
+        .unwrap();
+
+        let result =
+            generator.generate_mosaic(&target_path, &output_path, 2, 2, false, 100, false, false);
+
+        // Should succeed because generate_mosaic creates parent directories
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_similarity_database_invalid_path() {
+        let tempdir = create_test_material_dir().unwrap();
+
+        // Try to use an invalid path for similarity database
+        let invalid_db_path = PathBuf::from("/invalid/path/that/does/not/exist/db.json");
+
+        let result = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &invalid_db_path,
+            false,
+            0.3,
+            0.3,
+        );
+
+        // Should succeed but create empty database
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_large_image_dimensions() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+
+        // Create a large target image
+        let target_img = create_test_image(2000, 2000, Rgb([100, 100, 100]));
+        let target_path = tempdir.path().join("large_target.png");
+        target_img.save(&target_path).unwrap();
+
+        let output_path = tempdir.path().join("large_output.png");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        )
+        .unwrap();
+
+        // Test with large grid - should not crash
+        let result = generator.generate_mosaic(
+            &target_path,
+            &output_path,
+            20, // Large grid
+            20,
+            false,
+            100,
+            false,
+            false,
+        );
+
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_memory_intensive_configuration() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+
+        // Test with configuration that would use significant memory
+        let result = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10000, // Very large max materials (but limited by actual files)
+            1,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        );
+
+        assert!(result.is_ok());
+        let generator = result.unwrap();
+
+        // Should be limited by actual number of files
+        assert!(generator.tiles.len() <= 10000);
+    }
+
+    #[test]
+    fn test_concurrent_database_access() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("concurrent_similarity.json");
+
+        // Create multiple generators that might access the same database
+        let generator1 = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        );
+
+        let generator2 = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false, // Don't rebuild
+            0.3,
+            0.3,
+        );
+
+        assert!(generator1.is_ok());
+        assert!(generator2.is_ok());
+    }
+
+    #[test]
+    fn test_image_format_edge_cases() {
+        let tempdir = tempdir().unwrap();
+
+        // Create images with different formats
+        let red_img = create_test_image(100, 100, Rgb([255, 0, 0]));
+
+        // Test different extensions
+        let png_path = tempdir.path().join("test.PNG"); // Uppercase extension
+        let jpeg_path = tempdir.path().join("test.JPEG"); // Uppercase JPEG
+        let jpg_path = tempdir.path().join("test.JPG"); // Uppercase JPG
+
+        red_img.save(&png_path).unwrap();
+        red_img.save(&jpeg_path).unwrap();
+        red_img.save(&jpg_path).unwrap();
+
+        let result = MosaicGenerator::load_tiles(tempdir.path(), 1.0, 0.1, 10);
+        assert!(result.is_ok());
+
+        let tiles = result.unwrap();
+        assert_eq!(tiles.len(), 3); // Should load all three formats
+    }
+
+    #[test]
+    fn test_boundary_value_parameters() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+
+        // Test with boundary values
+        let result = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.0, // Minimum aspect tolerance
+            1,   // Minimum max materials
+            1,   // Minimum max usage
+            &similarity_db_path,
+            false,
+            0.0, // Minimum adjacency penalty
+            0.0, // Minimum color adjustment
+        );
+
+        assert!(result.is_ok());
+        let generator = result.unwrap();
+        assert_eq!(generator.adjacency_penalty_weight, 0.0);
+        assert_eq!(generator.color_adjustment_strength, 0.0);
+    }
+
+    #[test]
+    fn test_unicode_file_paths() {
+        let tempdir = tempdir().unwrap();
+
+        // Create file with unicode characters in name
+        let unicode_name = "测试图像.png";
+        let unicode_path = tempdir.path().join(unicode_name);
+
+        let test_img = create_test_image(50, 50, Rgb([200, 100, 50]));
+        test_img.save(&unicode_path).unwrap();
+
+        let result = MosaicGenerator::load_tiles(tempdir.path(), 1.0, 0.1, 10);
+        assert!(result.is_ok());
+
+        let tiles = result.unwrap();
+        assert_eq!(tiles.len(), 1);
+        assert!(tiles[0]
+            .path
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains("测试"));
+    }
+
+    #[test]
+    fn test_very_small_images() {
+        let tempdir = tempdir().unwrap();
+
+        // Create very small images (edge case)
+        let tiny_img = create_test_image(1, 1, Rgb([255, 255, 255]));
+        tiny_img.save(tempdir.path().join("tiny.png")).unwrap();
+
+        let result = MosaicGenerator::load_tiles(tempdir.path(), 1.0, 0.1, 10);
+        assert!(result.is_ok());
+
+        let tiles = result.unwrap();
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].aspect_ratio, 1.0);
+    }
+
+    #[test]
+    fn test_grid_position_edge_cases() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        )
+        .unwrap();
+
+        generator.initialize_grid(3, 3);
+
+        let test_path = PathBuf::from("test.png");
+
+        // Test positions at grid boundaries
+        assert!(generator.can_place_at_position(&test_path, 0, 0)); // Top-left corner
+        assert!(generator.can_place_at_position(&test_path, 2, 2)); // Bottom-right corner
+        assert!(generator.can_place_at_position(&test_path, 0, 2)); // Bottom-left corner
+        assert!(generator.can_place_at_position(&test_path, 2, 0)); // Top-right corner
+    }
+
+    // Complete Pipeline Integration Tests
+    #[test]
+    fn test_complete_pipeline_with_minimal_materials() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+
+        // Create a simple target image
+        let target_img = create_test_image(60, 60, Rgb([150, 75, 200]));
+        let target_path = tempdir.path().join("target.png");
+        target_img.save(&target_path).unwrap();
+
+        let output_path = tempdir.path().join("output.png");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            3, // Use all available materials
+            1, // Each image used only once
+            &similarity_db_path,
+            false,
+            0.5, // High adjacency penalty
+            0.5, // Strong color adjustment
+        )
+        .unwrap();
+
+        let result = generator.generate_mosaic(
+            &target_path,
+            &output_path,
+            3, // Small grid to ensure all tiles are used
+            3,
+            true,  // Enable optimization
+            100,   // Low iterations for speed
+            false, // No time tracking
+            false, // No grid visualization
+        );
+
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+
+        // Verify output image properties
+        let output_img = image::open(&output_path).unwrap();
+        assert_eq!(output_img.dimensions(), (60, 60));
+    }
+
+    #[test]
+    fn test_pipeline_with_corrupted_materials() {
+        let tempdir = tempdir().unwrap();
+
+        // Create mix of valid and corrupted material files
+        let valid_img = create_test_image(100, 100, Rgb([100, 150, 200]));
+        valid_img.save(tempdir.path().join("valid.png")).unwrap();
+
+        // Create corrupted files
+        std::fs::write(tempdir.path().join("corrupted1.png"), "not an image").unwrap();
+        std::fs::write(tempdir.path().join("corrupted2.jpg"), "also not an image").unwrap();
+
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+        let target_img = create_test_image(40, 40, Rgb([100, 100, 100]));
+        let target_path = tempdir.path().join("target.png");
+        target_img.save(&target_path).unwrap();
+
+        let output_path = tempdir.path().join("output.png");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.5, // Large tolerance
+            10,
+            5,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        )
+        .unwrap();
+
+        // Should work with only valid images
+        let result =
+            generator.generate_mosaic(&target_path, &output_path, 2, 2, false, 100, false, false);
+
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_pipeline_with_extreme_color_variations() {
+        let tempdir = tempdir().unwrap();
+
+        // Create materials with extreme colors
+        let black_img = create_test_image(50, 50, Rgb([0, 0, 0]));
+        let white_img = create_test_image(50, 50, Rgb([255, 255, 255]));
+        let red_img = create_test_image(50, 50, Rgb([255, 0, 0]));
+        let blue_img = create_test_image(50, 50, Rgb([0, 0, 255]));
+        let green_img = create_test_image(50, 50, Rgb([0, 255, 0]));
+
+        black_img.save(tempdir.path().join("black.png")).unwrap();
+        white_img.save(tempdir.path().join("white.png")).unwrap();
+        red_img.save(tempdir.path().join("red.png")).unwrap();
+        blue_img.save(tempdir.path().join("blue.png")).unwrap();
+        green_img.save(tempdir.path().join("green.png")).unwrap();
+
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+
+        // Create target with gradient
+        let mut target_buffer = image::ImageBuffer::new(100, 100);
+        for (x, y, pixel) in target_buffer.enumerate_pixels_mut() {
+            let intensity = (x + y) as f32 / 200.0 * 255.0;
+            *pixel = Rgb([intensity as u8, intensity as u8, intensity as u8]);
+        }
+        let target_img = DynamicImage::ImageRgb8(target_buffer);
+        let target_path = tempdir.path().join("gradient.png");
+        target_img.save(&target_path).unwrap();
+
+        let output_path = tempdir.path().join("extreme_colors_output.png");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.2,
+            0.7, // Strong color adjustment for extreme colors
+        )
+        .unwrap();
+
+        let result = generator.generate_mosaic(
+            &target_path,
+            &output_path,
+            4,
+            4,
+            true, // Enable optimization
+            500,
+            false,
+            false,
+        );
+
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_pipeline_memory_stress_simulation() {
+        let tempdir = tempdir().unwrap();
+
+        // Create many small material images to simulate memory pressure
+        for i in 0..20 {
+            let color_value = (i * 12) as u8;
+            let img = create_test_image(25, 25, Rgb([color_value, color_value, color_value]));
+            img.save(tempdir.path().join(format!("material_{}.png", i)))
+                .unwrap();
+        }
+
+        let similarity_db_path = tempdir.path().join("stress_similarity.json");
+        let target_img = create_test_image(200, 200, Rgb([128, 128, 128]));
+        let target_path = tempdir.path().join("large_target.png");
+        target_img.save(&target_path).unwrap();
+
+        let output_path = tempdir.path().join("stress_output.png");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            50, // Request more than available
+            1,  // Low usage limit
+            &similarity_db_path,
+            false,
+            0.4,
+            0.3,
+        )
+        .unwrap();
+
+        // Use large grid to stress memory
+        let result = generator.generate_mosaic(
+            &target_path,
+            &output_path,
+            10, // 10x10 = 100 tiles
+            10,
+            true, // Enable optimization
+            200,  // Moderate optimization
+            false,
+            false,
+        );
+
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+
+        // Verify we loaded the expected number of materials
+        assert!(generator.tiles.len() >= 20); // Should load at least the created files
+    }
+
+    #[test]
+    fn test_pipeline_with_single_material() {
+        let tempdir = tempdir().unwrap();
+
+        // Create only one material image
+        let single_img = create_test_image(30, 30, Rgb([180, 120, 60]));
+        single_img.save(tempdir.path().join("single.png")).unwrap();
+
+        let similarity_db_path = tempdir.path().join("single_similarity.json");
+        let target_img = create_test_image(60, 60, Rgb([100, 200, 150]));
+        let target_path = tempdir.path().join("target.png");
+        target_img.save(&target_path).unwrap();
+
+        let output_path = tempdir.path().join("single_material_output.png");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            100, // High usage limit since we only have one material
+            &similarity_db_path,
+            false,
+            0.0, // No adjacency penalty (only one material)
+            0.8, // Strong color adjustment
+        )
+        .unwrap();
+
+        let result = generator.generate_mosaic(
+            &target_path,
+            &output_path,
+            3,
+            3,
+            false, // No optimization (pointless with one material)
+            100,
+            false,
+            false,
+        );
+
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+        assert!(generator.tiles.len() >= 1); // Should have at least one tile
+    }
+
+    #[test]
+    fn test_pipeline_with_aspect_ratio_mismatch() {
+        let tempdir = tempdir().unwrap();
+
+        // Create materials with different aspect ratios
+        let wide_img = create_test_image(200, 100, Rgb([255, 100, 100])); // 2:1
+        let tall_img = create_test_image(100, 200, Rgb([100, 255, 100])); // 1:2
+        let square_img = create_test_image(100, 100, Rgb([100, 100, 255])); // 1:1
+
+        wide_img.save(tempdir.path().join("wide.png")).unwrap();
+        tall_img.save(tempdir.path().join("tall.png")).unwrap();
+        square_img.save(tempdir.path().join("square.png")).unwrap();
+
+        let similarity_db_path = tempdir.path().join("aspect_similarity.json");
+
+        // Create square target image
+        let target_img = create_test_image(120, 120, Rgb([150, 150, 150]));
+        let target_path = tempdir.path().join("square_target.png");
+        target_img.save(&target_path).unwrap();
+
+        let output_path = tempdir.path().join("aspect_output.png");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0, // Target is square (1:1)
+            0.1, // Strict tolerance - should favor square image
+            10,
+            3,
+            &similarity_db_path,
+            false,
+            0.3,
+            0.3,
+        )
+        .unwrap();
+
+        let result =
+            generator.generate_mosaic(&target_path, &output_path, 2, 2, false, 100, false, false);
+
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+
+        // Should have loaded at least the square image
+        assert!(generator.tiles.len() >= 1);
+    }
+
+    #[test]
+    fn test_full_feature_integration() {
+        let tempdir = tempdir().unwrap();
+
+        // Create diverse set of materials
+        let colors = [
+            Rgb([200, 50, 50]),   // Red
+            Rgb([50, 200, 50]),   // Green
+            Rgb([50, 50, 200]),   // Blue
+            Rgb([200, 200, 50]),  // Yellow
+            Rgb([200, 50, 200]),  // Magenta
+            Rgb([50, 200, 200]),  // Cyan
+            Rgb([150, 150, 150]), // Gray
+            Rgb([100, 75, 125]),  // Purple
+        ];
+
+        for (i, color) in colors.iter().enumerate() {
+            let img = create_test_image(80, 80, *color);
+            img.save(tempdir.path().join(format!("color_{}.png", i)))
+                .unwrap();
+        }
+
+        let similarity_db_path = tempdir.path().join("full_feature_similarity.json");
+
+        // Create colorful target image
+        let mut target_buffer = image::ImageBuffer::new(160, 160);
+        for (x, y, pixel) in target_buffer.enumerate_pixels_mut() {
+            let r = ((x as f32 / 160.0) * 255.0) as u8;
+            let g = ((y as f32 / 160.0) * 255.0) as u8;
+            let b = (((x + y) as f32 / 320.0) * 255.0) as u8;
+            *pixel = Rgb([r, g, b]);
+        }
+        let target_img = DynamicImage::ImageRgb8(target_buffer);
+        let target_path = tempdir.path().join("colorful_target.png");
+        target_img.save(&target_path).unwrap();
+
+        let output_path = tempdir.path().join("full_feature_output.png");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            20,
+            2, // Moderate usage limit
+            &similarity_db_path,
+            true, // Force rebuild database
+            0.4,  // Moderate adjacency penalty
+            0.4,  // Moderate color adjustment
+        )
+        .unwrap();
+
+        let result = generator.generate_mosaic(
+            &target_path,
+            &output_path,
+            4, // 4x4 grid
+            4,
+            true,  // Enable all optimizations
+            300,   // Substantial optimization
+            false, // No display for test
+            false,
+        );
+
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+        assert!(generator.tiles.len() >= 8); // Should load at least the expected materials
+
+        // Verify output dimensions
+        let output_img = image::open(&output_path).unwrap();
+        assert_eq!(output_img.dimensions(), (160, 160));
+    }
 }
