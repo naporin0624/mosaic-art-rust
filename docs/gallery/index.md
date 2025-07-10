@@ -9,7 +9,7 @@ A detailed 24,000-tile mosaic created for the Ristill Birthday 2025 celebration,
 
 - **Grid Size**: 206×116 (23,896 tiles)
 - **Materials**: 2,849 VRChat screenshots
-- **Processing Time**: ~12 minutes
+- **Processing Time**: ~1.5 hours
 - **Special Features**: Portrait optimization, high color accuracy
 
 ## Gallery Sections
