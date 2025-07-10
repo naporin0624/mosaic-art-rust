@@ -472,11 +472,9 @@ mosaic-rust/
 │   ├── color_adjustment.rs  # HSV color adjustment algorithms
 │   ├── grid_visualizer.rs   # ASCII progress display
 │   ├── time_tracker.rs      # Performance tracking and ETA
-│   └── gui/                 # GUI application components
+│   └── gui/                 # GUI application
 │       ├── main.rs          # GUI application entry point
-│       ├── app_full.rs      # Complete GUI with all features
-│       ├── app_working.rs   # Intermediate working version
-│       └── app_simple.rs    # Simple test version
+│       └── app_full.rs      # Complete GUI implementation
 ├── docs/                    # Comprehensive documentation
 │   ├── README.md            # Documentation overview
 │   ├── api/                 # API documentation
