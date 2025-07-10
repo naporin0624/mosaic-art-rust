@@ -296,10 +296,10 @@ mod tests {
         let empty_grid: Vec<Vec<Option<PathBuf>>> = vec![];
         let sim_db = SimilarityDatabase::new();
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, OptimizationConfig::default());
         let result = optimizer.optimize(&mut empty_grid.clone());
-        
+
         // Should handle empty grid gracefully
         assert_eq!(result.initial_cost, 0.0);
         assert_eq!(result.final_cost, 0.0);
@@ -311,18 +311,18 @@ mod tests {
         let mut sim_db = SimilarityDatabase::new();
         sim_db.add_tile(PathBuf::from("single.png"), Lab::new(50.0, 0.0, 0.0));
         sim_db.build_similarities();
-        
+
         let mut grid = vec![vec![Some(PathBuf::from("single.png"))]];
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
-        
+
         let config = OptimizationConfig {
             max_iterations: 100,
             ..Default::default()
         };
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, config);
         let result = optimizer.optimize(&mut grid);
-        
+
         // Single tile grid should have zero cost and no changes
         assert_eq!(result.initial_cost, 0.0);
         assert_eq!(result.final_cost, 0.0);
@@ -336,21 +336,21 @@ mod tests {
         sim_db.add_tile(PathBuf::from("tile1.png"), Lab::new(50.0, 0.0, 0.0));
         sim_db.add_tile(PathBuf::from("tile2.png"), Lab::new(60.0, 10.0, 10.0));
         sim_db.build_similarities();
-        
+
         let mut grid = vec![vec![None; 3]; 3];
         grid[0][0] = Some(PathBuf::from("tile1.png"));
         grid[2][2] = Some(PathBuf::from("tile2.png"));
         // Rest remain None
-        
+
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
         let config = OptimizationConfig {
             max_iterations: 50,
             ..Default::default()
         };
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, config);
         let result = optimizer.optimize(&mut grid);
-        
+
         // Should handle sparse grid gracefully
         assert!(result.final_cost >= 0.0);
         // Non-adjacent tiles should have zero cost
@@ -361,7 +361,7 @@ mod tests {
     fn test_optimization_extreme_temperature_values() {
         let (mut grid, sim_db) = create_test_grid();
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
-        
+
         // Test with very high temperature
         let config_high_temp = OptimizationConfig {
             max_iterations: 20,
@@ -369,14 +369,14 @@ mod tests {
             temperature_decay: 0.95,
             ..Default::default()
         };
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, config_high_temp);
         let result_high = optimizer.optimize(&mut grid);
-        
+
         // Should complete without issues
         assert_eq!(result_high.iterations, 20);
         assert!(result_high.final_cost >= 0.0);
-        
+
         // Test with very low temperature
         let (mut grid2, _) = create_test_grid();
         let config_low_temp = OptimizationConfig {
@@ -385,30 +385,32 @@ mod tests {
             temperature_decay: 0.99,
             ..Default::default()
         };
-        
+
         let optimizer2 = MosaicOptimizer::new(&calculator, config_low_temp);
         let result_low = optimizer2.optimize(&mut grid2);
-        
+
         // Low temperature should behave more like greedy
         assert_eq!(result_low.iterations, 20);
-        assert!(result_low.final_cost <= result_low.initial_cost || result_low.final_cost.is_finite());
+        assert!(
+            result_low.final_cost <= result_low.initial_cost || result_low.final_cost.is_finite()
+        );
     }
 
     #[test]
     fn test_optimization_zero_temperature_decay() {
         let (mut grid, sim_db) = create_test_grid();
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
-        
+
         let config = OptimizationConfig {
             max_iterations: 10,
             initial_temperature: 100.0,
             temperature_decay: 0.0, // Temperature goes to zero immediately
             ..Default::default()
         };
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, config);
         let result = optimizer.optimize(&mut grid);
-        
+
         // Should complete without panicking
         assert_eq!(result.iterations, 10);
         assert!(result.final_cost.is_finite());
@@ -418,17 +420,17 @@ mod tests {
     fn test_optimization_very_fast_decay() {
         let (mut grid, sim_db) = create_test_grid();
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
-        
+
         let config = OptimizationConfig {
             max_iterations: 50,
             initial_temperature: 1000.0,
             temperature_decay: 0.5, // Very fast cooling
             ..Default::default()
         };
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, config);
         let result = optimizer.optimize(&mut grid);
-        
+
         // Fast cooling should reduce acceptance rate over time
         assert_eq!(result.iterations, 50);
         assert!(result.final_cost >= 0.0);
@@ -438,15 +440,15 @@ mod tests {
     fn test_optimization_zero_iterations() {
         let (mut grid, sim_db) = create_test_grid();
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
-        
+
         let config = OptimizationConfig {
             max_iterations: 0,
             ..Default::default()
         };
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, config);
         let result = optimizer.optimize(&mut grid);
-        
+
         // No iterations should mean no changes
         assert_eq!(result.iterations, 0);
         assert_eq!(result.improved_count, 0);
@@ -458,15 +460,15 @@ mod tests {
     fn test_optimization_single_iteration() {
         let (mut grid, sim_db) = create_test_grid();
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
-        
+
         let config = OptimizationConfig {
             max_iterations: 1,
             ..Default::default()
         };
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, config);
         let result = optimizer.optimize(&mut grid);
-        
+
         // Single iteration should work
         assert_eq!(result.iterations, 1);
         assert!(result.final_cost.is_finite());
@@ -475,16 +477,20 @@ mod tests {
     #[test]
     fn test_optimization_large_grid() {
         let mut sim_db = SimilarityDatabase::new();
-        
+
         // Create many tiles for large grid
         for i in 0..25 {
             sim_db.add_tile(
                 PathBuf::from(format!("tile_{}.png", i)),
-                Lab::new(50.0 + i as f32, (i as f32 - 12.0) * 2.0, (i as f32 - 12.0) * 3.0)
+                Lab::new(
+                    50.0 + i as f32,
+                    (i as f32 - 12.0) * 2.0,
+                    (i as f32 - 12.0) * 3.0,
+                ),
             );
         }
         sim_db.build_similarities();
-        
+
         // Create 5x5 grid
         let mut grid = vec![vec![None; 5]; 5];
         let mut tile_idx = 0;
@@ -494,17 +500,17 @@ mod tests {
                 tile_idx += 1;
             }
         }
-        
+
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 0.5);
         let config = OptimizationConfig {
             max_iterations: 100,
             report_interval: 25,
             ..Default::default()
         };
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, config);
         let result = optimizer.optimize(&mut grid);
-        
+
         // Large grid should work without issues
         assert_eq!(result.iterations, 100);
         assert!(result.final_cost >= 0.0);
@@ -517,10 +523,10 @@ mod tests {
         let empty_grid: Vec<Vec<Option<PathBuf>>> = vec![];
         let sim_db = SimilarityDatabase::new();
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, OptimizationConfig::default());
         let result = optimizer.optimize_greedy(&mut empty_grid.clone(), 10);
-        
+
         // Empty grid should return default result
         assert_eq!(result.initial_cost, 0.0);
         assert_eq!(result.final_cost, 0.0);
@@ -531,10 +537,10 @@ mod tests {
     fn test_greedy_optimization_zero_iterations() {
         let (mut grid, sim_db) = create_test_grid();
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, OptimizationConfig::default());
         let result = optimizer.optimize_greedy(&mut grid, 0);
-        
+
         // Zero iterations should make no changes
         assert_eq!(result.improved_count, 0);
         assert_eq!(result.initial_cost, result.final_cost);
@@ -551,9 +557,9 @@ mod tests {
             accepted_count: 0,
             iterations: 10,
         };
-        
+
         assert_eq!(result_zero.improvement_percentage(), 0.0);
-        
+
         // Test with negative improvement (cost increased)
         let result_worse = OptimizationResult {
             initial_cost: 50.0,
@@ -563,9 +569,9 @@ mod tests {
             accepted_count: 5,
             iterations: 100,
         };
-        
+
         assert_eq!(result_worse.improvement_percentage(), -50.0);
-        
+
         // Test with perfect improvement (cost went to zero)
         let result_perfect = OptimizationResult {
             initial_cost: 100.0,
@@ -575,14 +581,14 @@ mod tests {
             accepted_count: 60,
             iterations: 200,
         };
-        
+
         assert_eq!(result_perfect.improvement_percentage(), 100.0);
     }
 
     #[test]
     fn test_optimization_identical_tiles() {
         let mut sim_db = SimilarityDatabase::new();
-        
+
         // Add identical tiles (same Lab color)
         let identical_color = Lab::new(50.0, 0.0, 0.0);
         sim_db.add_tile(PathBuf::from("identical1.png"), identical_color);
@@ -590,22 +596,22 @@ mod tests {
         sim_db.add_tile(PathBuf::from("identical3.png"), identical_color);
         sim_db.add_tile(PathBuf::from("identical4.png"), identical_color);
         sim_db.build_similarities();
-        
+
         let mut grid = vec![vec![None; 2]; 2];
         grid[0][0] = Some(PathBuf::from("identical1.png"));
         grid[0][1] = Some(PathBuf::from("identical2.png"));
         grid[1][0] = Some(PathBuf::from("identical3.png"));
         grid[1][1] = Some(PathBuf::from("identical4.png"));
-        
+
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
         let config = OptimizationConfig {
             max_iterations: 50,
             ..Default::default()
         };
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, config);
         let result = optimizer.optimize(&mut grid);
-        
+
         // Identical tiles should have maximum adjacency cost
         assert!(result.initial_cost > 0.0);
         assert_eq!(result.iterations, 50);
@@ -614,7 +620,7 @@ mod tests {
     #[test]
     fn test_optimization_config_defaults() {
         let config = OptimizationConfig::default();
-        
+
         assert_eq!(config.max_iterations, 1000);
         assert_eq!(config.initial_temperature, 100.0);
         assert_eq!(config.temperature_decay, 0.99995);
@@ -624,30 +630,30 @@ mod tests {
     #[test]
     fn test_optimization_numerical_stability() {
         let mut sim_db = SimilarityDatabase::new();
-        
+
         // Add tiles with extreme Lab values
         sim_db.add_tile(PathBuf::from("extreme1.png"), Lab::new(0.0, -100.0, -100.0));
         sim_db.add_tile(PathBuf::from("extreme2.png"), Lab::new(100.0, 100.0, 100.0));
         sim_db.add_tile(PathBuf::from("extreme3.png"), Lab::new(50.0, 0.0, 0.0));
         sim_db.add_tile(PathBuf::from("extreme4.png"), Lab::new(25.0, -50.0, 50.0));
         sim_db.build_similarities();
-        
+
         let mut grid = vec![vec![None; 2]; 2];
         grid[0][0] = Some(PathBuf::from("extreme1.png"));
         grid[0][1] = Some(PathBuf::from("extreme2.png"));
         grid[1][0] = Some(PathBuf::from("extreme3.png"));
         grid[1][1] = Some(PathBuf::from("extreme4.png"));
-        
+
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 2.0);
         let config = OptimizationConfig {
             max_iterations: 30,
             initial_temperature: 1000.0,
             ..Default::default()
         };
-        
+
         let optimizer = MosaicOptimizer::new(&calculator, config);
         let result = optimizer.optimize(&mut grid);
-        
+
         // Should handle extreme values without numerical issues
         assert!(result.initial_cost.is_finite());
         assert!(result.final_cost.is_finite());
