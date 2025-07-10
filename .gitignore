@@ -4,6 +4,7 @@ convert_all_images.sh
 convert_images.fixed.sh
 demo.sh
 similarity_db.json
+square_db.json
 *.png
 *.jpg
 !examples/*.png

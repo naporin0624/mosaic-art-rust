@@ -241,4 +241,260 @@ mod tests {
         assert!(apply_brightness_contrast(0.3, 0.0, 1.5) < 0.3);
         assert!(apply_brightness_contrast(0.7, 0.0, 1.5) > 0.7);
     }
+
+    #[test]
+    fn test_apply_brightness_contrast_clamping() {
+        // Test upper bound clamping
+        assert!(apply_brightness_contrast(0.9, 0.5, 1.0) <= 1.0);
+        assert!(apply_brightness_contrast(0.8, 0.0, 3.0) <= 1.0);
+
+        // Test lower bound clamping
+        assert!(apply_brightness_contrast(0.1, -0.5, 1.0) >= 0.0);
+        assert!(apply_brightness_contrast(0.2, 0.0, 0.1) >= 0.0);
+    }
+
+    #[test]
+    fn test_pixel_adjustment_brightness_extremes() {
+        // Test bright pixel with positive brightness
+        let bright_adjustment = ColorAdjustment::new(0.3, 1.0, 0.0, 1.0);
+        let bright_pixel = Rgb([200, 200, 200]);
+        let adjusted = bright_adjustment.adjust_pixel(bright_pixel);
+
+        // Should be brighter but clamped to 255
+        assert!(adjusted[0] >= bright_pixel[0]);
+        assert!(adjusted[1] >= bright_pixel[1]);
+        assert!(adjusted[2] >= bright_pixel[2]);
+
+        // Test dark pixel with negative brightness
+        let dark_adjustment = ColorAdjustment::new(-0.3, 1.0, 0.0, 1.0);
+        let dark_pixel = Rgb([50, 50, 50]);
+        let adjusted_dark = dark_adjustment.adjust_pixel(dark_pixel);
+
+        // Should be darker but clamped to 0
+        assert!(adjusted_dark[0] <= dark_pixel[0]);
+        assert!(adjusted_dark[1] <= dark_pixel[1]);
+        assert!(adjusted_dark[2] <= dark_pixel[2]);
+    }
+
+    #[test]
+    fn test_pixel_adjustment_hue_shift() {
+        // Test hue shift on a saturated red pixel
+        let hue_adjustment = ColorAdjustment::new(0.0, 1.0, 120.0, 1.0);
+        let red_pixel = Rgb([255, 0, 0]);
+        let adjusted = hue_adjustment.adjust_pixel(red_pixel);
+
+        // Red shifted by 120 degrees should become green-ish
+        assert!(adjusted[1] > adjusted[0]); // Green should be higher than red
+        assert!(adjusted[1] > adjusted[2]); // Green should be higher than blue
+    }
+
+    #[test]
+    fn test_pixel_adjustment_saturation() {
+        // Test saturation increase on a gray pixel (should have minimal effect)
+        let saturation_adjustment = ColorAdjustment::new(0.0, 1.0, 0.0, 2.0);
+        let gray_pixel = Rgb([128, 128, 128]);
+        let adjusted = saturation_adjustment.adjust_pixel(gray_pixel);
+
+        // Gray pixels should remain mostly unchanged with saturation adjustments
+        let diff_r = (adjusted[0] as i16 - gray_pixel[0] as i16).abs();
+        let diff_g = (adjusted[1] as i16 - gray_pixel[1] as i16).abs();
+        let diff_b = (adjusted[2] as i16 - gray_pixel[2] as i16).abs();
+
+        assert!(diff_r <= 5);
+        assert!(diff_g <= 5);
+        assert!(diff_b <= 5);
+
+        // Test saturation decrease on a colorful pixel
+        let desaturate_adjustment = ColorAdjustment::new(0.0, 1.0, 0.0, 0.5);
+        let colorful_pixel = Rgb([255, 100, 50]);
+        let desaturated = desaturate_adjustment.adjust_pixel(colorful_pixel);
+
+        // Color channels should be closer to each other (less saturated)
+        let original_range = 255 - 50;
+        let adjusted_range = desaturated[0].max(desaturated[1]).max(desaturated[2])
+            - desaturated[0].min(desaturated[1]).min(desaturated[2]);
+
+        assert!(adjusted_range < original_range);
+    }
+
+    #[test]
+    fn test_apply_to_image() {
+        use image::{ImageBuffer, RgbImage};
+
+        // Create a simple test image
+        let test_image: RgbImage = ImageBuffer::from_fn(10, 10, |x, _y| {
+            if x < 5 {
+                Rgb([255, 0, 0])
+            } else {
+                Rgb([0, 255, 0])
+            }
+        });
+
+        let dynamic_image = DynamicImage::ImageRgb8(test_image);
+
+        // Apply brightness adjustment
+        let adjustment = ColorAdjustment::new(0.2, 1.0, 0.0, 1.0);
+        let adjusted_image = adjustment.apply_to_image(&dynamic_image);
+
+        // Check that the image dimensions are preserved
+        assert_eq!(adjusted_image.width(), 10);
+        assert_eq!(adjusted_image.height(), 10);
+
+        // Check that the adjustment was applied
+        let adjusted_rgb = adjusted_image.to_rgb8();
+        let original_rgb = dynamic_image.to_rgb8();
+
+        let original_pixel = original_rgb.get_pixel(0, 0);
+        let adjusted_pixel = adjusted_rgb.get_pixel(0, 0);
+
+        // Red channel should be brighter (but may be clamped at 255)
+        assert!(adjusted_pixel[0] >= original_pixel[0]);
+    }
+
+    #[test]
+    fn test_optimal_adjustment_brightness_difference() {
+        let dark_tile = Rgb([50, 50, 50]);
+        let bright_target = Rgb([200, 200, 200]);
+
+        let adjustment = calculate_optimal_adjustment(dark_tile, bright_target, 1.0);
+
+        // Should suggest positive brightness adjustment
+        assert!(adjustment.brightness > 0.0);
+        assert!(adjustment.brightness <= 1.0);
+
+        // Test reverse case
+        let adjustment_reverse = calculate_optimal_adjustment(bright_target, dark_tile, 1.0);
+
+        // Should suggest negative brightness adjustment
+        assert!(adjustment_reverse.brightness < 0.0);
+        assert!(adjustment_reverse.brightness >= -1.0);
+    }
+
+    #[test]
+    fn test_optimal_adjustment_hue_difference() {
+        let red_tile = Rgb([255, 0, 0]);
+        let green_target = Rgb([0, 255, 0]);
+
+        let adjustment = calculate_optimal_adjustment(red_tile, green_target, 1.0);
+
+        // Should suggest hue shift towards green (around 120 degrees)
+        assert!(adjustment.hue_shift.abs() > 10.0);
+        assert!(adjustment.hue_shift.abs() <= 180.0);
+    }
+
+    #[test]
+    fn test_optimal_adjustment_saturation_difference() {
+        let saturated_tile = Rgb([255, 0, 0]);
+        let desaturated_target = Rgb([200, 150, 150]);
+
+        let adjustment = calculate_optimal_adjustment(saturated_tile, desaturated_target, 1.0);
+
+        // Should suggest saturation decrease
+        assert!(adjustment.saturation < 1.0);
+        assert!(adjustment.saturation >= 0.0);
+    }
+
+    #[test]
+    fn test_optimal_adjustment_strength_scaling() {
+        let tile = Rgb([100, 100, 100]);
+        let target = Rgb([200, 200, 200]);
+
+        let full_adjustment = calculate_optimal_adjustment(tile, target, 1.0);
+        let half_adjustment = calculate_optimal_adjustment(tile, target, 0.5);
+
+        // Half strength should result in half the adjustment
+        assert!((half_adjustment.brightness - full_adjustment.brightness * 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_optimal_adjustment_gray_colors() {
+        let gray_tile = Rgb([128, 128, 128]);
+        let gray_target = Rgb([64, 64, 64]);
+
+        let adjustment = calculate_optimal_adjustment(gray_tile, gray_target, 1.0);
+
+        // Gray colors should primarily affect brightness, not hue
+        assert!(adjustment.brightness < 0.0); // Should be darker
+        assert!(adjustment.hue_shift.abs() < 5.0); // Hue should be minimal
+        assert!((adjustment.saturation - 1.0).abs() < 0.1); // Saturation should be close to 1.0
+    }
+
+    #[test]
+    fn test_optimal_adjustment_zero_strength() {
+        let tile = Rgb([255, 0, 0]);
+        let target = Rgb([0, 255, 0]);
+
+        let adjustment = calculate_optimal_adjustment(tile, target, 0.0);
+
+        // Zero strength should result in no adjustment
+        assert!(adjustment.brightness.abs() < 0.01);
+        assert!(adjustment.hue_shift.abs() < 0.01);
+        assert!((adjustment.saturation - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_color_adjustment_new_negative_hue() {
+        let adjustment = ColorAdjustment::new(0.0, 1.0, -100.0, 1.0);
+
+        // Should clamp to -180.0
+        assert!(adjustment.hue_shift >= -180.0);
+        assert_eq!(adjustment.hue_shift, -100.0);
+    }
+
+    #[test]
+    fn test_color_adjustment_new_extreme_values() {
+        let adjustment = ColorAdjustment::new(-2.0, 5.0, -500.0, 10.0);
+
+        assert_eq!(adjustment.brightness, -1.0);
+        assert_eq!(adjustment.contrast, 2.0);
+        assert_eq!(adjustment.hue_shift, -180.0);
+        assert_eq!(adjustment.saturation, 2.0);
+    }
+
+    #[test]
+    fn test_hue_wraparound_in_optimal_adjustment() {
+        // Test hue difference calculation with wraparound
+        let red_tile = Rgb([255, 0, 0]); // 0 degrees
+        let violet_target = Rgb([255, 0, 255]); // 300 degrees
+
+        let adjustment = calculate_optimal_adjustment(red_tile, violet_target, 1.0);
+
+        // Should choose the shorter path around the color wheel
+        assert!(adjustment.hue_shift.abs() <= 180.0);
+    }
+
+    #[test]
+    fn test_low_saturation_hue_handling() {
+        // Test that low saturation colors don't get significant hue adjustments
+        let low_sat_tile = Rgb([100, 95, 105]);
+        let low_sat_target = Rgb([105, 95, 100]);
+
+        let adjustment = calculate_optimal_adjustment(low_sat_tile, low_sat_target, 1.0);
+
+        // Hue shift should be minimal for low saturation colors
+        assert!(adjustment.hue_shift.abs() < 10.0);
+    }
+
+    #[test]
+    fn test_extreme_pixel_values() {
+        let adjustment = ColorAdjustment::new(0.5, 1.5, 60.0, 1.5);
+
+        // Test pure white pixel
+        let white_pixel = Rgb([255, 255, 255]);
+        let adjusted_white = adjustment.adjust_pixel(white_pixel);
+
+        // Should remain white (or very close to it)
+        assert!(adjusted_white[0] >= 250);
+        assert!(adjusted_white[1] >= 250);
+        assert!(adjusted_white[2] >= 250);
+
+        // Test pure black pixel
+        let black_pixel = Rgb([0, 0, 0]);
+        let adjusted_black = adjustment.adjust_pixel(black_pixel);
+
+        // Should become brighter due to positive brightness adjustment
+        assert!(adjusted_black[0] > 0);
+        assert!(adjusted_black[1] > 0);
+        assert!(adjusted_black[2] > 0);
+    }
 }
