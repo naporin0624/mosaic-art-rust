@@ -1,0 +1,45 @@
+# Build outputs
+target/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+node_modules/
+
+# Lock files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+Cargo.lock
+
+# Generated files
+similarity_db.json
+square_db.json
+
+# Binary files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.webp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Rust files (formatted by rustfmt)
+*.rs
+
+# Shell scripts
+*.sh
