@@ -92,6 +92,26 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 cargo build --release
 ```
 
+### Building Individual Components
+
+You can build just the GUI or CLI independently:
+
+```bash
+# Build only the GUI application (recommended for desktop users)
+cargo build --release --bin mosaic-gui
+
+# Build only the CLI application (for servers/automation)
+cargo build --release --bin mosaic-rust
+
+# Build both (default behavior)
+cargo build --release
+```
+
+**Benefits of independent building:**
+- **Faster compilation**: Only builds what you need
+- **Smaller binary size**: No unused dependencies
+- **Deployment flexibility**: Ship GUI-only or CLI-only applications
+
 ## Quick Start
 
 ### Command Line Interface (CLI)
@@ -126,7 +146,12 @@ For an intuitive visual interface, use the GUI application:
 
 # Or run from source
 cargo run --bin mosaic-gui --release
+
+# Build and run GUI only (no CLI dependencies)
+cargo build --release --bin mosaic-gui && ./target/release/mosaic-gui
 ```
+
+> **💡 Independent Application**: The GUI is completely independent from the CLI and can be built and deployed separately. It includes all mosaic generation functionality built-in.
 
 #### GUI Features
 
@@ -427,6 +452,50 @@ The simulated annealing algorithm:
 
 ### Development Build
 
+### Quick Start with Build Scripts
+
+Choose the appropriate build script for your platform:
+
+**Windows (PowerShell - Recommended)**
+```powershell
+# Full build with all features
+.\build.ps1
+
+# Build specific targets
+.\build.ps1 -Target cli -Config release
+.\build.ps1 -Target gui -Config debug -Test
+
+# Development workflow
+.\dev.ps1 run-cli      # Quick CLI test
+.\dev.ps1 run-gui      # Launch GUI
+.\dev.ps1 example      # Generate showcase
+```
+
+**Windows (Command Prompt)**
+```cmd
+# Release build (recommended)
+build.bat
+
+# Debug build
+build.bat debug
+
+# Clean artifacts
+build.bat clean
+```
+
+**Linux/macOS/WSL**
+```bash
+# Full release build
+./quick-build.sh build
+
+# Development commands
+./quick-build.sh test          # Run tests
+./quick-build.sh example       # Generate example
+./quick-build.sh format        # Format code
+```
+
+### Manual Build Commands
+
 ```bash
 # Build CLI application
 cargo build
@@ -452,6 +521,18 @@ cargo build --release
 cargo build --bin mosaic-gui --release
 ```
 
+### Build Scripts Features
+
+- 🚀 **Cross-platform support** (Windows, Linux, macOS)
+- 🔧 **Multiple build configurations** (debug/release)
+- 🧪 **Integrated testing** with verbose output
+- 📦 **Binary installation** to local bin directory
+- 🎨 **Code formatting** and linting (rustfmt, clippy)
+- 📊 **Build summaries** with file sizes and usage examples
+- 🌈 **Colored output** for better developer experience
+
+See [BUILD_GUIDE.md](BUILD_GUIDE.md) for detailed build instructions and troubleshooting.
+
 The release profile includes:
 
 - Link Time Optimization (LTO)
@@ -475,6 +556,11 @@ mosaic-rust/
 │   └── gui/                 # GUI application
 │       ├── main.rs          # GUI application entry point
 │       └── app_full.rs      # Complete GUI implementation
+├── build.ps1               # PowerShell build script (Windows)
+├── build.bat               # Batch build script (Windows CMD)
+├── quick-build.sh          # Shell build script (Linux/macOS/WSL)
+├── dev.ps1                 # Development helper script
+├── BUILD_GUIDE.md          # Comprehensive build instructions
 ├── docs/                    # Comprehensive documentation
 │   ├── README.md            # Documentation overview
 │   ├── api/                 # API documentation

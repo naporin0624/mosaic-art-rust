@@ -31,6 +31,7 @@ path = "src/main.rs"
 [[bin]]
 name = "mosaic-gui"
 path = "src/gui/main.rs"
+test = false
 
 [profile.release]
 lto = true

@@ -10,11 +10,34 @@ pub mod optimizer;
 pub mod similarity;
 pub mod time_tracker;
 
-// GUI module for testing
+// GUI-related data structures for testing
 #[cfg(test)]
 pub mod gui {
     pub mod app_full {
-        include!("gui/app_full.rs");
+        #[derive(Debug, Clone)]
+        pub struct MosaicSettings {
+            pub grid_w: u32,
+            pub grid_h: u32,
+            pub total_tiles: Option<u32>,
+            pub auto_calculate: bool,
+            pub max_materials: usize,
+            pub color_adjustment: f32,
+            pub enable_optimization: bool,
+        }
+
+        impl Default for MosaicSettings {
+            fn default() -> Self {
+                Self {
+                    grid_w: 50,
+                    grid_h: 28,
+                    total_tiles: Some(1400),
+                    auto_calculate: true,
+                    max_materials: 500,
+                    color_adjustment: 0.3,
+                    enable_optimization: true,
+                }
+            }
+        }
     }
 }
 

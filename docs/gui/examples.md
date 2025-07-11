@@ -1,381 +1,467 @@
-# GUI Usage Examples
+# Examples and Tutorials
 
-This document provides practical examples and common usage patterns for the Mosaic Art Generator GUI application.
+This section provides step-by-step examples for common use cases and creative applications of the GUI application.
 
-## Table of Contents
+## Basic Examples
 
-- [Basic Usage Workflow](#basic-usage-workflow)
-- [Common Scenarios](#common-scenarios)
-- [Advanced Configurations](#advanced-configurations)
-- [Tips and Best Practices](#tips-and-best-practices)
-- [Troubleshooting Examples](#troubleshooting-examples)
+### Example 1: Your First Mosaic
 
-## Basic Usage Workflow
+**Goal**: Create a simple mosaic using default settings
 
-### Step-by-Step Guide
-
-#### 1. Launch the GUI Application
-
-```bash
-# From release build
-./target/release/mosaic-gui
-
-# From source (development)
-cargo run --bin mosaic-gui --release
-```
-
-The application will open with the default light theme and empty file paths.
-
-#### 2. Select Your Target Image
-
-1. In the **File Selection** section, find the **Target Image** field
-2. Either:
-   - Type the path directly: `/path/to/your/photo.jpg`
-   - Click **"Browse"** to open the file dialog
-3. Select an image file (PNG, JPG, JPEG supported)
-
-**Example paths:**
-- Windows: `C:\Users\YourName\Pictures\vacation.jpg`
-- macOS: `/Users/YourName/Pictures/vacation.jpg`
-- Linux: `/home/username/Pictures/vacation.jpg`
-
-#### 3. Select Material Directory
-
-1. In the **Material Directory** field
-2. Click **"Browse"** to select the folder containing your material images
-3. Choose a directory with multiple images (preferably 100+ for best results)
-
-**Example directories:**
-- A folder of personal photos
-- Downloaded image collection
-- VRChat screenshots collection
-- Stock photo thumbnails
-
-#### 4. Configure Grid Settings
-
-**Option A: Auto-Calculate (Recommended)**
-1. Ensure **"Auto-calculate grid from total tiles"** is checked ✅
-2. Enter desired **Total tiles** (e.g., `1400`)
-3. Click **"Calculate Grid"**
-4. The Width and Height fields will auto-populate
-
-**Option B: Manual Configuration**
-1. Uncheck **"Auto-calculate grid from total tiles"** ❌
-2. Manually enter **Grid Width** (e.g., `80`)
-3. Manually enter **Grid Height** (e.g., `60`)
-
-#### 5. Set Output Path
-
-1. In the **Output Path** field
-2. Click **"Browse"** to choose where to save your mosaic
-3. Enter a filename with supported extension (`.png`, `.jpg`, `.jpeg`)
-
-#### 6. Generate Your Mosaic
-
-1. Click **"Generate Mosaic"**
-2. Monitor the console output for progress (currently displayed in terminal)
-3. Wait for completion message
-
-## Common Scenarios
-
-### Scenario 1: Quick Preview Mosaic
-
-**Goal**: Generate a fast preview to test composition
-
-**Configuration**:
-- **Target Image**: Your photo
-- **Material Directory**: Any collection of 100+ images
-- **Grid Settings**: 
-  - Auto-calculate: ✅ Enabled
-  - Total tiles: `400` (creates ~20×20 grid)
-- **Advanced Settings**:
-  - Max materials: `200`
-  - Color adjustment: `0.0` (disabled for speed)
-  - Enable optimization: ❌ Disabled
-
-**Expected Result**: Fast generation (~1-2 minutes) with basic quality
-
-### Scenario 2: High-Quality Art Piece
-
-**Goal**: Create a detailed, high-quality mosaic for printing
-
-**Configuration**:
-- **Target Image**: High-resolution source image
-- **Material Directory**: Large collection (1000+ images)
-- **Grid Settings**:
-  - Auto-calculate: ✅ Enabled
-  - Total tiles: `4000` (creates ~80×50 grid)
-- **Advanced Settings**:
-  - Max materials: `1500`
-  - Color adjustment: `0.5`
-  - Enable optimization: ✅ Enabled
-
-**Expected Result**: High-quality output (15-30 minutes processing)
-
-### Scenario 3: Portrait Orientation
-
-**Goal**: Create a portrait-oriented mosaic (9:16 aspect ratio)
-
-**Configuration**:
-- **Target Image**: Portrait photo
-- **Grid Settings**:
-  - Auto-calculate: ❌ Disabled
-  - Grid Width: `45`
-  - Grid Height: `80`
-- **Advanced Settings**:
-  - Max materials: `800`
-  - Color adjustment: `0.4`
-
-**Expected Result**: Vertical mosaic with 3,600 tiles
-
-### Scenario 4: Unique Tiles Only
-
-**Goal**: Ensure no material image is repeated
-
-**Configuration**:
-- **Material Directory**: Collection with more images than grid cells
-- **Grid Settings**: Standard configuration
-- **Advanced Settings**:
-  - Max materials: Match or exceed total tiles
-  - **Note**: This requires manual CLI usage as GUI doesn't expose `max-usage-per-image`
-
-**CLI Equivalent**:
-```bash
-./target/release/mosaic-rust \
-  --target photo.jpg \
-  --material-src ./materials \
-  --output unique_mosaic.jpg \
-  --grid-w 50 \
-  --grid-h 40 \
-  --max-usage-per-image 1 \
-  --max-materials 2000
-```
-
-### Scenario 5: Theme Customization
-
-**Goal**: Work in comfortable lighting conditions
+**Materials Needed**:
+- 1 target image (photo or artwork)
+- 100+ material images (photos, screenshots, artwork)
 
 **Steps**:
-1. Click **"Toggle Theme"** to switch between light and dark modes
-2. Dark theme: Better for low-light environments
-3. Light theme: Better for bright workspaces
 
-**Theme Features**:
-- Persists during session
-- Instant switching
-- Affects all UI elements
-
-## Advanced Configurations
-
-### Memory-Constrained Systems
-
-**Problem**: Limited RAM (< 8GB)
-
-**Solution**:
-- **Max materials**: `200-500`
-- **Grid dimensions**: Keep total tiles under 2000
-- **Color adjustment**: `0.0-0.2` (reduces memory usage)
-
-**Example Configuration**:
-- Grid: 40×30 (1,200 tiles)
-- Max materials: 300
-- Color adjustment: 0.1
-
-### Ultra-High Quality Output
-
-**Problem**: Need maximum possible quality
-
-**Solution**:
-- **Large grid**: 100×100+ tiles
-- **Many materials**: 2000+ unique images
-- **Strong color adjustment**: 0.6-0.8
-- **Enable optimization**: Always
-
-**Example Configuration**:
-- Grid: 120×90 (10,800 tiles)
-- Max materials: 2500
-- Color adjustment: 0.7
-
-### Batch Processing Simulation
-
-**Problem**: Need to process multiple images with same settings
-
-**Current Workaround**:
-1. Configure settings for first image
-2. Generate mosaic
-3. Only change target image path for subsequent images
-4. Click "Generate Mosaic" again
-
-**Future Enhancement**: True batch processing interface planned
-
-### Material Library Management
-
-**Best Practices**:
-
-1. **Organize by theme**:
-   ```
-   materials/
-   ├── nature/
-   ├── urban/
-   ├── people/
-   └── abstract/
+1. **Launch the GUI**
+   ```bash
+   ./target/release/mosaic-gui
    ```
 
-2. **Use consistent sizing**: Pre-resize materials to similar dimensions
+2. **Select Files**
+   - Click "Browse" next to "Target Image"
+   - Select your main image (e.g., `portrait.jpg`)
+   - Click "Browse" next to "Material Directory"
+   - Select folder containing your tile images
+   - Click "Browse" next to "Output Path"
+   - Choose save location (e.g., `my-first-mosaic.png`)
 
-3. **Quality over quantity**: 500 high-quality images > 2000 low-quality
+3. **Basic Settings**
+   - Keep "Auto-calculate grid from total tiles" checked
+   - Set "Total tiles" to 1000
+   - Click "Calculate Grid"
+   - Result: Approximately 42×24 grid
 
-4. **Aspect ratio matching**: Include materials with similar aspect ratios to your target
+4. **Generate**
+   - Click "Generate Mosaic"
+   - Wait for completion (1-5 minutes)
+   - View your result!
 
-## Tips and Best Practices
+**Expected Results**:
+- Processing time: 1-5 minutes
+- Output size: Similar to target image dimensions
+- Quality: Good balance of detail and recognizability
 
-### File Management
+### Example 2: High-Quality Portrait
 
-**Recommended file naming**:
-```
-input_image.jpg          → Final name: input_image_mosaic_1400.png
-portrait_photo.png       → Final name: portrait_photo_mosaic_3600.jpg
-landscape_sunset.jpeg    → Final name: landscape_sunset_mosaic_2000.png
-```
+**Goal**: Create a detailed portrait mosaic with optimal settings
 
-**Directory structure**:
-```
-mosaic_project/
-├── originals/           # Source images
-├── materials/           # Material image collections
-├── outputs/             # Generated mosaics
-└── configs/             # Saved settings (future feature)
-```
+**Materials Needed**:
+- High-resolution portrait (1920×1080 or higher)
+- 500+ diverse material images
+- Powerful computer (8GB+ RAM)
 
-### Performance Optimization
+**Steps**:
 
-**For faster generation**:
-1. Use smaller grids for testing (20×20 to 50×30)
-2. Limit materials to 200-500 for previews
-3. Disable color adjustment for speed tests
-4. Keep optimization disabled during experimentation
+1. **File Selection**
+   - Target: High-resolution portrait
+   - Materials: Diverse collection with good color variety
+   - Output: PNG format for best quality
 
-**For better quality**:
-1. Use larger grids (80×60 or higher)
-2. Include 1000+ material images
-3. Enable color adjustment (0.3-0.6)
-4. Always enable optimization for final output
+2. **Grid Settings**
+   - Enable auto-calculate
+   - Set total tiles to 2500
+   - Calculated grid: ~67×37
 
-### Grid Calculation Guidelines
+3. **Advanced Settings** (Click ► to expand)
+   - Max materials: 800
+   - Color adjustment: 0.4
+   - Max usage per image: 2
+   - Adjacency penalty weight: 0.4
+   - Enable optimization: Yes
+   - Optimization iterations: 1500
 
-**Common aspect ratios and grid suggestions**:
+4. **Generate and Review**
+   - Enable verbose logging for detailed progress
+   - Processing time: 5-15 minutes
+   - Final result: High-detail portrait with minimal repetition
 
-| Target Aspect Ratio | Total Tiles | Suggested Grid | Actual Tiles |
-|-------------------|------------|----------------|--------------|
-| 16:9 (Landscape)  | 1400       | 50×28          | 1400         |
-| 16:9 (Landscape)  | 2500       | 67×38          | 2546         |
-| 4:3 (Standard)    | 1200       | 40×30          | 1200         |
-| 1:1 (Square)      | 1600       | 40×40          | 1600         |
-| 9:16 (Portrait)   | 1400       | 28×50          | 1400         |
+**Expected Results**:
+- Very detailed facial features
+- Smooth color transitions
+- Minimal tile repetition
+- Professional-looking result
 
-### Color Adjustment Guidelines
+### Example 3: Landscape Mosaic
 
-| Strength | Use Case | Quality | Speed |
-|----------|----------|---------|-------|
-| 0.0      | Preview/Speed test | Basic | Fastest |
-| 0.1-0.2  | Quick results | Good | Fast |
-| 0.3-0.4  | Standard quality | Very Good | Medium |
-| 0.5-0.6  | High quality | Excellent | Slow |
-| 0.7-1.0  | Maximum quality | Outstanding | Slowest |
+**Goal**: Create a landscape mosaic emphasizing natural patterns
+
+**Materials Needed**:
+- Landscape photograph (mountain, ocean, forest)
+- Nature-themed material images
+- Medium-powered computer
+
+**Steps**:
+
+1. **File Selection**
+   - Target: Landscape with clear horizon and sky
+   - Materials: Nature photos (trees, clouds, water, rocks)
+   - Output: JPG format for smaller file size
+
+2. **Grid Settings**
+   - Enable auto-calculate
+   - Set total tiles to 1800
+   - Calculated grid: ~57×32
+
+3. **Advanced Settings**
+   - Max materials: 600
+   - Color adjustment: 0.5 (higher for natural blending)
+   - Max usage per image: 3
+   - Adjacency penalty weight: 0.2 (lower for natural clustering)
+   - Enable optimization: Yes
+   - Optimization iterations: 1200
+
+4. **Review Results**
+   - Sky should blend smoothly
+   - Natural textures in terrain
+   - Organic-looking patterns
+
+**Expected Results**:
+- Natural-looking texture variations
+- Smooth sky gradients
+- Realistic terrain representation
+- 3-8 minutes processing time
+
+## Creative Applications
+
+### Example 4: Artistic Style Transfer
+
+**Goal**: Create an artistic mosaic that mimics a specific art style
+
+**Materials Needed**:
+- Target image (any subject)
+- Material images from specific art movement (e.g., impressionist paintings)
+- Creative eye for artistic effect
+
+**Steps**:
+
+1. **Curate Materials**
+   - Collect 200-400 images from chosen art style
+   - Ensure good color and texture variety
+   - Resize to consistent dimensions if needed
+
+2. **Configure for Artistic Effect**
+   - Total tiles: 1200-1600
+   - Max materials: 300-400
+   - Color adjustment: 0.1 (preserve original art colors)
+   - Max usage per image: 1 (maximum variety)
+   - Adjacency penalty weight: 0.6 (avoid repetition)
+   - Enable optimization: Yes
+   - Optimization iterations: 2000
+
+3. **Generate and Refine**
+   - First attempt with settings above
+   - Adjust color adjustment if needed
+   - Try different tile counts for different effects
+
+**Expected Results**:
+- Target image rendered in chosen art style
+- Unique artistic interpretation
+- Each tile maintains original artwork character
+- Cohesive artistic aesthetic
+
+### Example 5: Pixel Art Style
+
+**Goal**: Create a retro pixel art style mosaic
+
+**Materials Needed**:
+- Target image with clear, bold colors
+- Pixel art sprites or simple geometric shapes
+- Retro color palette
+
+**Steps**:
+
+1. **Material Preparation**
+   - Collect pixel art sprites, icons, or simple shapes
+   - Ensure consistent pixel dimensions
+   - Focus on bold, saturated colors
+
+2. **Settings for Pixel Art Style**
+   - Total tiles: 400-800 (fewer for chunky pixel effect)
+   - Max materials: 100-200
+   - Color adjustment: 0.0 (preserve pixel art colors)
+   - Max usage per image: 5+ (allow repetition)
+   - Adjacency penalty weight: 0.1 (allow clustering)
+   - Enable optimization: No (preserve blocky appearance)
+
+3. **Generate Pixel Art**
+   - Lower tile count creates chunkier effect
+   - Monitor results for desired pixelated look
+   - Adjust tile count as needed
+
+**Expected Results**:
+- Retro pixel art aesthetic
+- Chunky, blocky appearance
+- Bold color contrasts
+- Nostalgic gaming feel
+
+### Example 6: Collage Effect
+
+**Goal**: Create a photo collage mosaic using personal photos
+
+**Materials Needed**:
+- Target image (family photo, pet, etc.)
+- Collection of personal photos
+- Sentimental value for creative project
+
+**Steps**:
+
+1. **Personal Photo Collection**
+   - Gather 200-500 personal photos
+   - Include variety: people, places, objects
+   - Mix color and black & white photos
+
+2. **Collage Settings**
+   - Total tiles: 1500-2000
+   - Max materials: 400-500
+   - Color adjustment: 0.6 (help photos blend)
+   - Max usage per image: 1-2 (see many different photos)
+   - Adjacency penalty weight: 0.5 (avoid photo clustering)
+   - Enable optimization: Yes
+   - Optimization iterations: 1500
+
+3. **Create Memory Collage**
+   - Each tile will be a recognizable photo
+   - Resulting mosaic tells a story through images
+   - Perfect for gifts or memory preservation
+
+**Expected Results**:
+- Personal photo collage
+- Each tile is a distinct memory
+- Meaningful artistic creation
+- Unique family artwork
+
+## Advanced Techniques
+
+### Example 7: Multi-Pass Processing
+
+**Goal**: Create extremely high-quality mosaics through multiple processing passes
+
+**Materials Needed**:
+- High-resolution target image
+- Large, diverse material collection (1000+ images)
+- Powerful computer with 16GB+ RAM
+
+**Steps**:
+
+1. **First Pass - Structure**
+   - Total tiles: 3000
+   - Max materials: 1000
+   - Color adjustment: 0.3
+   - Max usage per image: 3
+   - Adjacency penalty weight: 0.5
+   - Enable optimization: Yes
+   - Optimization iterations: 2000
+
+2. **Analyze Results**
+   - Enable verbose logging
+   - Note areas with poor tile matching
+   - Identify repetitive patterns
+   - Check color accuracy
+
+3. **Second Pass - Refinement**
+   - Adjust settings based on first pass
+   - Increase color adjustment if needed
+   - Add more materials if available
+   - Focus on problem areas
+
+4. **Final Pass - Polish**
+   - Fine-tune all settings
+   - Maximum optimization iterations
+   - Highest quality output format
+   - Final quality check
+
+**Expected Results**:
+- Museum-quality mosaic
+- Exceptional detail and color accuracy
+- Minimal artifacts or repetition
+- Professional presentation quality
+
+### Example 8: Batch Processing Workflow
+
+**Goal**: Process multiple related images with consistent settings
+
+**Materials Needed**:
+- Multiple target images (portrait series, landscape collection)
+- Consistent material collection
+- Organized file structure
+
+**Steps**:
+
+1. **Prepare File Structure**
+   ```
+   project/
+   ├── targets/
+   │   ├── image1.jpg
+   │   ├── image2.jpg
+   │   └── image3.jpg
+   ├── materials/
+   │   ├── tile1.jpg
+   │   └── ...
+   └── outputs/
+       ├── mosaic1.png
+       ├── mosaic2.png
+       └── mosaic3.png
+   ```
+
+2. **Establish Baseline Settings**
+   - Process first image with various settings
+   - Document successful configuration
+   - Note processing time and resource usage
+
+3. **Process Series**
+   - Use identical settings for all images
+   - Process one at a time
+   - Monitor system resources
+   - Save with consistent naming
+
+4. **Quality Control**
+   - Review all results
+   - Ensure consistent quality
+   - Note any images needing adjustment
+   - Reprocess if necessary
+
+**Expected Results**:
+- Consistent visual style across series
+- Predictable processing times
+- Organized output collection
+- Professional workflow
 
 ## Troubleshooting Examples
 
-### Problem: No materials found
+### Example 9: Fixing Poor Results
 
-**Symptoms**: Error message about empty material directory
+**Problem**: Mosaic looks blurry or colors don't match
 
-**Solution**:
-1. Verify the material directory path is correct
-2. Ensure the directory contains image files (PNG, JPG, JPEG)
-3. Check file permissions (read access required)
-4. Try a different directory with known good images
+**Diagnostic Steps**:
 
-**Example fix**:
-```
-# Instead of empty directory
-/path/to/empty_folder/
+1. **Enable Verbose Logging**
+   - Check advanced settings
+   - Enable verbose logging
+   - Regenerate mosaic
+   - Review log messages
 
-# Use directory with images
-/path/to/photos_collection/
-├── img001.jpg
-├── img002.png
-└── img003.jpeg
-```
+2. **Analyze Issues**
+   - Check material loading messages
+   - Look for color matching warnings
+   - Note any error messages
+   - Review processing statistics
 
-### Problem: Grid calculation produces unexpected results
+3. **Adjust Settings**
+   - Increase color adjustment strength
+   - Add more material images
+   - Increase total tiles for more detail
+   - Enable optimization if disabled
 
-**Symptoms**: Auto-calculated grid doesn't match expectations
+4. **Iterative Improvement**
+   - Make one change at a time
+   - Test results
+   - Document effective changes
+   - Build optimal configuration
 
-**Debugging**:
-1. Check the total tiles input (numbers only)
-2. Remember the algorithm assumes 16:9 aspect ratio
-3. For different aspect ratios, use manual grid entry
+**Expected Results**:
+- Systematic problem identification
+- Targeted setting adjustments
+- Improved mosaic quality
+- Repeatable success
 
-**Example**:
-- Input: 1000 tiles
-- Auto-calculated: 42×24 (1008 tiles) ✅
-- Manual override: 32×32 (1024 tiles) if square needed
+### Example 10: Performance Optimization
 
-### Problem: Very slow generation
+**Problem**: Mosaic generation takes too long or uses too much memory
 
-**Symptoms**: Processing takes over 30 minutes
+**Optimization Steps**:
 
-**Immediate fixes**:
-1. Reduce grid size: Try 30×20 instead of 100×75
-2. Limit materials: Set max materials to 500
-3. Disable optimization temporarily
-4. Reduce color adjustment to 0.1
+1. **Baseline Measurement**
+   - Record current processing time
+   - Monitor memory usage
+   - Note system specifications
+   - Document current settings
 
-**Long-term optimization**:
-1. Use SSD storage for material images
-2. Pre-resize material images to similar dimensions
-3. Ensure adequate RAM (8GB+ recommended for large mosaics)
+2. **Systematic Reduction**
+   - Reduce total tiles by 25%
+   - Reduce max materials by 25%
+   - Disable optimization temporarily
+   - Test processing time
 
-### Problem: Poor color matching
+3. **Find Balance Point**
+   - Gradually increase settings
+   - Monitor performance impact
+   - Find optimal balance
+   - Document final configuration
 
-**Symptoms**: Generated mosaic doesn't resemble the original
+4. **System Optimization**
+   - Close unnecessary applications
+   - Ensure adequate free memory
+   - Use release builds
+   - Consider hardware upgrades
 
-**Solutions**:
-1. Increase color adjustment strength (0.5-0.7)
-2. Use more diverse material images
-3. Enable optimization for better tile placement
-4. Check that material images have good color variety
+**Expected Results**:
+- Acceptable processing time
+- Stable memory usage
+- Maintained quality
+- Optimized workflow
 
-**Color diversity check**:
-- Materials should include: bright, dark, colored, and neutral images
-- Avoid collections with similar color palettes
-- Include images with various brightness levels
+## Tips for Success
 
-### Problem: File dialog doesn't open
+### Material Collection Tips
 
-**Platform-specific solutions**:
+1. **Diversity is Key**
+   - Wide range of colors
+   - Various textures and patterns
+   - Different subjects and themes
+   - Mix of bright and dark images
 
-**Linux**:
-```bash
-# Install required dependencies
-sudo apt-get install libgtk-3-dev
+2. **Quality Matters**
+   - High resolution when possible
+   - Good exposure and contrast
+   - Minimal noise or artifacts
+   - Consistent format (PNG or JPG)
 
-# For newer systems
-sudo apt-get install libgtk-4-dev
-```
+3. **Quantity Guidelines**
+   - Minimum 100 images for basic mosaics
+   - 300-500 for good variety
+   - 1000+ for professional results
+   - Match to your tile count needs
 
-**Windows**: Usually works out of the box, try running as administrator if issues persist
+### Settings Optimization
 
-**macOS**: Ensure the app has file system permissions in System Preferences
+1. **Start Conservative**
+   - Begin with lower tile counts
+   - Use moderate material limits
+   - Enable optimization
+   - Adjust based on results
 
-### Problem: Theme doesn't change
+2. **Iterative Improvement**
+   - Make one change at a time
+   - Test results thoroughly
+   - Document successful settings
+   - Build configuration library
 
-**Solution**:
-1. Click "Toggle Theme" button
-2. Wait a moment for re-render
-3. If stuck, restart the application
-4. Check that your system supports the requested theme
+3. **System Awareness**
+   - Monitor resource usage
+   - Stay within system limits
+   - Use release builds
+   - Plan for processing time
 
----
+### Creative Exploration
 
-These examples cover the most common usage patterns and problems. For additional help, refer to the [architecture documentation](architecture.md) or the main [README](../../README.md).
+1. **Experiment with Styles**
+   - Try different material themes
+   - Vary color adjustment strengths
+   - Explore different tile counts
+   - Mix artistic and photographic materials
+
+2. **Document Everything**
+   - Keep notes on successful settings
+   - Record processing times
+   - Save example outputs
+   - Build personal style guide
+
+3. **Share and Learn**
+   - Share results with community
+   - Learn from others' techniques
+   - Contribute to documentation
+   - Explore new applications
+
+These examples provide a foundation for creating stunning mosaics with the GUI application. Each example builds on previous concepts while introducing new techniques and creative possibilities.

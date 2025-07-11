@@ -20,6 +20,7 @@ export default defineConfig({
       { text: 'Home', link: '/' },
       { text: 'Getting Started', link: '/getting-started/' },
       { text: 'Guide', link: '/guide/' },
+      { text: 'GUI', link: '/gui/' },
       { text: 'API', link: '/api/' },
       { text: 'Gallery', link: '/gallery/' },
       { 
@@ -55,6 +56,21 @@ export default defineConfig({
             { text: 'Parameters', link: '/guide/parameters' },
             { text: 'Examples', link: '/guide/examples' },
             { text: 'Performance Tuning', link: '/guide/performance-tuning' }
+          ]
+        }
+      ],
+      
+      '/gui/': [
+        {
+          text: 'GUI Application',
+          items: [
+            { text: 'Overview', link: '/gui/' },
+            { text: 'Getting Started', link: '/gui/getting-started' },
+            { text: 'Interface Guide', link: '/gui/interface-guide' },
+            { text: 'Advanced Settings', link: '/gui/advanced-settings' },
+            { text: 'Architecture', link: '/gui/architecture' },
+            { text: 'Examples', link: '/gui/examples' },
+            { text: 'Troubleshooting', link: '/gui/troubleshooting' }
           ]
         }
       ],

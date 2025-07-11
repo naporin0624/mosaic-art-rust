@@ -1,5 +1,5 @@
 use iced::widget::{button, checkbox, column, container, progress_bar, row, scrollable, text, text_input};
-use iced::{Application, Command, Element, Length, Theme, Subscription};
+use iced::{Application, Command, Element, Length, Theme};
 use std::path::PathBuf;
 use std::time::Instant;
 use tokio::sync::mpsc;
@@ -31,6 +31,7 @@ use kiddo::SquaredEuclidean;
 use palette::Lab;
 use rayon::prelude::*;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -62,6 +63,7 @@ pub enum Message {
     CalculateGrid,
     GenerateMosaic,
     ToggleTheme,
+    ToggleAdvancedSettings,
     
     // Processing
     MosaicGenerationCompleted(Result<String, String>),
@@ -119,6 +121,9 @@ pub struct MosaicApp {
     settings: MosaicSettings,
     theme: Theme,
     pending_selection: Option<FileSelectionType>,
+    
+    // UI state
+    advanced_settings_expanded: bool,
 
     // Input field states
     grid_w_input: String,
@@ -135,7 +140,7 @@ pub struct MosaicApp {
     log_messages: Vec<String>,
     start_time: Option<Instant>,
     
-    // Progress channel
+    // Progress tracking
     progress_receiver: Option<mpsc::UnboundedReceiver<(f32, String)>>,
 }
 
@@ -161,6 +166,7 @@ impl Application for MosaicApp {
                 output_path: String::new(),
                 theme: Theme::Light,
                 pending_selection: None,
+                advanced_settings_expanded: false,
                 grid_w_input: settings.grid_w.to_string(),
                 grid_h_input: settings.grid_h.to_string(),
                 total_tiles_input: settings
@@ -175,8 +181,8 @@ impl Application for MosaicApp {
                 processing_state: ProcessingState::Idle,
                 log_messages: Vec::new(),
                 start_time: None,
-                settings,
                 progress_receiver: None,
+                settings,
             },
             Command::none(),
         )
@@ -340,7 +346,6 @@ impl Application for MosaicApp {
 
                 // Create progress channel
                 let (progress_sender, progress_receiver) = mpsc::unbounded_channel::<(f32, String)>();
-                self.progress_receiver = Some(progress_receiver);
                 
                 // Start processing
                 self.processing_state = ProcessingState::Processing { 
@@ -364,12 +369,20 @@ impl Application for MosaicApp {
                     self.log_messages.push(format!("🔄 Optimization iterations: {}", self.settings.optimization_iterations));
                 }
 
+                // Create a command that spawns both the generation and progress polling
+                let target_path = self.target_path.clone();
+                let material_path = self.material_path.clone();
+                let output_path = self.output_path.clone();
+                let settings = self.settings.clone();
+                
+                self.progress_receiver = Some(progress_receiver);
+                
                 return Command::perform(
                     generate_mosaic_async(
-                        self.target_path.clone(),
-                        self.material_path.clone(),
-                        self.output_path.clone(),
-                        self.settings.clone(),
+                        target_path,
+                        material_path,
+                        output_path,
+                        settings,
                         progress_sender,
                     ),
                     Message::MosaicGenerationCompleted,
@@ -421,7 +434,20 @@ impl Application for MosaicApp {
                 }
             }
             Message::LogMessage(message) => {
-                self.log_messages.push(message);
+                if message == "Heartbeat" {
+                    // Check for progress updates
+                    if let Some(ref mut receiver) = self.progress_receiver {
+                        while let Ok(update) = receiver.try_recv() {
+                            self.processing_state = ProcessingState::Processing {
+                                progress: update.0,
+                                step: update.1.clone(),
+                            };
+                            self.log_messages.push(update.1);
+                        }
+                    }
+                } else {
+                    self.log_messages.push(message);
+                }
             }
             Message::ToggleTheme => {
                 self.theme = match self.theme {
@@ -429,6 +455,9 @@ impl Application for MosaicApp {
                     Theme::Dark => Theme::Light,
                     _ => Theme::Light,
                 };
+            }
+            Message::ToggleAdvancedSettings => {
+                self.advanced_settings_expanded = !self.advanced_settings_expanded;
             }
         }
         Command::none()
@@ -546,83 +575,114 @@ impl Application for MosaicApp {
         .spacing(12)
         .padding(20);
 
-        let advanced_section = column![
-            text("Advanced Settings")
-                .size(24),
-            column![
-                row![
-                    text("Max materials:")
-                        .size(14)
-                        .width(Length::Fixed(250.0)),
-                    text_input("500", &self.max_materials_input)
-                        .on_input(Message::MaxMaterialsChanged)
-                        .padding(8)
-                        .width(Length::Fixed(100.0))
-                ]
-                .spacing(12)
-                .align_items(iced::Alignment::Center),
-                row![
-                    text("Color adjustment (0.0-1.0):")
-                        .size(14)
-                        .width(Length::Fixed(250.0)),
-                    text_input("0.3", &self.color_adjustment_input)
-                        .on_input(Message::ColorAdjustmentChanged)
-                        .padding(8)
-                        .width(Length::Fixed(100.0))
-                ]
-                .spacing(12)
-                .align_items(iced::Alignment::Center),
-                row![
-                    text("Max usage per image:")
-                        .size(14)
-                        .width(Length::Fixed(250.0)),
-                    text_input("3", &self.max_usage_per_image_input)
-                        .on_input(Message::MaxUsagePerImageChanged)
-                        .padding(8)
-                        .width(Length::Fixed(100.0))
-                ]
-                .spacing(12)
-                .align_items(iced::Alignment::Center),
-                row![
-                    text("Adjacency penalty weight (0.0-1.0):")
-                        .size(14)
-                        .width(Length::Fixed(250.0)),
-                    text_input("0.3", &self.adjacency_penalty_weight_input)
-                        .on_input(Message::AdjacencyPenaltyWeightChanged)
-                        .padding(8)
-                        .width(Length::Fixed(100.0))
-                ]
-                .spacing(12)
-                .align_items(iced::Alignment::Center)
+        // Advanced settings section with collapsible UI
+        let arrow = if self.advanced_settings_expanded { "▼ " } else { "► " };
+        let advanced_header = button(
+            row![
+                text(arrow).size(18),
+                text("Advanced Settings").size(24)
             ]
-            .spacing(8),
-            checkbox("Enable optimization", self.settings.enable_optimization)
-                .on_toggle(Message::OptimizationToggled)
-                .spacing(8),
-            if self.settings.enable_optimization {
-                column![
-                    row![
-                        text("Optimization iterations:")
-                            .size(14)
-                            .width(Length::Fixed(250.0)),
-                        text_input("1000", &self.optimization_iterations_input)
-                            .on_input(Message::OptimizationIterationsChanged)
-                            .padding(8)
-                            .width(Length::Fixed(100.0))
+            .spacing(8)
+            .align_items(iced::Alignment::Center)
+        )
+        .style(iced::theme::Button::Text)
+        .width(Length::Fill)
+        .on_press(Message::ToggleAdvancedSettings)
+        .padding([8, 20]);
+
+        let advanced_section = if self.advanced_settings_expanded {
+            column![
+                advanced_header,
+                container(
+                    column![
+                        text("Configuration")
+                            .size(16)
+                            .style(iced::theme::Text::Color(iced::Color::from_rgb(0.6, 0.6, 0.6))),
+                        row![
+                            text("Max materials:")
+                                .size(14)
+                                .width(Length::Fixed(250.0)),
+                            text_input("500", &self.max_materials_input)
+                                .on_input(Message::MaxMaterialsChanged)
+                                .padding(8)
+                                .width(Length::Fixed(100.0))
+                        ]
+                        .spacing(12)
+                        .align_items(iced::Alignment::Center),
+                        row![
+                            text("Color adjustment (0.0-1.0):")
+                                .size(14)
+                                .width(Length::Fixed(250.0)),
+                            text_input("0.3", &self.color_adjustment_input)
+                                .on_input(Message::ColorAdjustmentChanged)
+                                .padding(8)
+                                .width(Length::Fixed(100.0))
+                        ]
+                        .spacing(12)
+                        .align_items(iced::Alignment::Center),
+                        row![
+                            text("Max usage per image:")
+                                .size(14)
+                                .width(Length::Fixed(250.0)),
+                            text_input("3", &self.max_usage_per_image_input)
+                                .on_input(Message::MaxUsagePerImageChanged)
+                                .padding(8)
+                                .width(Length::Fixed(100.0))
+                        ]
+                        .spacing(12)
+                        .align_items(iced::Alignment::Center),
+                        row![
+                            text("Adjacency penalty weight (0.0-1.0):")
+                                .size(14)
+                                .width(Length::Fixed(250.0)),
+                            text_input("0.3", &self.adjacency_penalty_weight_input)
+                                .on_input(Message::AdjacencyPenaltyWeightChanged)
+                                .padding(8)
+                                .width(Length::Fixed(100.0))
+                        ]
+                        .spacing(12)
+                        .align_items(iced::Alignment::Center),
+                        
+                        text("Optimization")
+                            .size(16)
+                            .style(iced::theme::Text::Color(iced::Color::from_rgb(0.6, 0.6, 0.6))),
+                        checkbox("Enable optimization", self.settings.enable_optimization)
+                            .on_toggle(Message::OptimizationToggled)
+                            .spacing(8),
+                        if self.settings.enable_optimization {
+                            column![
+                                row![
+                                    text("Optimization iterations:")
+                                        .size(14)
+                                        .width(Length::Fixed(250.0)),
+                                    text_input("1000", &self.optimization_iterations_input)
+                                        .on_input(Message::OptimizationIterationsChanged)
+                                        .padding(8)
+                                        .width(Length::Fixed(100.0))
+                                ]
+                                .spacing(12)
+                                .align_items(iced::Alignment::Center)
+                            ]
+                            .spacing(8)
+                        } else {
+                            column![]
+                        },
+                        
+                        text("Debugging")
+                            .size(16)
+                            .style(iced::theme::Text::Color(iced::Color::from_rgb(0.6, 0.6, 0.6))),
+                        checkbox("Verbose logging (debug output)", self.settings.verbose_logging)
+                            .on_toggle(Message::VerboseLoggingToggled)
+                            .spacing(8)
                     ]
                     .spacing(12)
-                    .align_items(iced::Alignment::Center)
-                ]
-                .spacing(8)
-            } else {
-                column![]
-            },
-            checkbox("Verbose logging (debug output)", self.settings.verbose_logging)
-                .on_toggle(Message::VerboseLoggingToggled)
-                .spacing(8)
-        ]
-        .spacing(12)
-        .padding(20);
+                )
+                .padding([0, 20, 20, 40])
+            ]
+            .spacing(0)
+        } else {
+            column![advanced_header]
+        };
 
         // Progress and status section
         let status_section = match &self.processing_state {
@@ -743,15 +803,14 @@ impl Application for MosaicApp {
         self.theme.clone()
     }
     
-    fn subscription(&self) -> Subscription<Self::Message> {
-        // Poll for progress updates during processing
+    fn subscription(&self) -> iced::Subscription<Self::Message> {
+        // Return a simple timer subscription during processing
+        // This will ensure the GUI stays responsive and progress updates are processed
         if let ProcessingState::Processing { .. } = self.processing_state {
-            if self.progress_receiver.is_some() {
-                return iced::time::every(std::time::Duration::from_millis(50))
-                    .map(|_| Message::UpdateProgress(0.0, String::new()));
-            }
+            return iced::time::every(Duration::from_millis(100))
+                .map(|_| Message::LogMessage("Heartbeat".to_string()));
         }
-        Subscription::none()
+        iced::Subscription::none()
     }
 }
 
@@ -794,6 +853,7 @@ async fn generate_mosaic_async(
         Err(e) => Err(format!("Processing error: {}", e)),
     }
 }
+
 
 type BigBucketKdTree = kiddo::float::kdtree::KdTree<f32, u64, 3, 256, u32>;
 
@@ -844,26 +904,74 @@ impl InternalMosaicGenerator {
         target_lab: &Lab,
         position: GridPosition,
     ) -> Option<Arc<Tile>> {
+        // Check if we have any tiles at all
+        if self.tiles.is_empty() {
+            eprintln!("❌ CRITICAL: No tiles available for mosaic generation");
+            return None;
+        }
+
+        // Stage 1: Primary selection with all constraints
+        if let Some(tile) = self.find_best_tile_primary(target_lab, position) {
+            return Some(tile);
+        }
+
+        // Stage 2: Fallback selection with relaxed usage constraints
+        eprintln!("⚠️ PRIMARY SELECTION FAILED for position ({}, {}), trying fallback...", position.x, position.y);
+        if let Some(tile) = self.fallback_tile_selection(target_lab, position) {
+            eprintln!("✅ FALLBACK SELECTION SUCCESS for position ({}, {})", position.x, position.y);
+            return Some(tile);
+        }
+
+        // Stage 3: Final fallback - use best color match without adjacency constraint
+        eprintln!("⚠️ FALLBACK SELECTION FAILED for position ({}, {}), trying final fallback...", position.x, position.y);
+        if let Some(tile) = self.final_fallback_selection(target_lab, position) {
+            eprintln!("✅ FINAL FALLBACK SUCCESS for position ({}, {})", position.x, position.y);
+            return Some(tile);
+        }
+
+        eprintln!("❌ CRITICAL: ALL FALLBACK METHODS FAILED for position ({}, {})", position.x, position.y);
+        None
+    }
+
+    fn find_best_tile_primary(
+        &mut self,
+        target_lab: &Lab,
+        position: GridPosition,
+    ) -> Option<Arc<Tile>> {
         let adjacency_calc = AdjacencyPenaltyCalculator::new(
             &self.similarity_db,
             self.adjacency_penalty_weight,
         );
         
-        // Find multiple candidates
+        // Find multiple candidates - increased from 20 to 100 to match CLI
         let candidates = self.kdtree.nearest_n::<SquaredEuclidean>(
             &[target_lab.l, target_lab.a, target_lab.b],
-            20,
+            100,
         );
         
         let mut best_tile = None;
         let mut best_score = f32::INFINITY;
+        let mut rejected_usage = 0;
+        let mut rejected_adjacency = 0;
+        let mut candidates_evaluated = 0;
         
         for candidate in candidates {
             let tile_idx = candidate.item as usize;
+            if tile_idx >= self.tiles.len() {
+                continue; // Safety check
+            }
             let tile = &self.tiles[tile_idx];
+            candidates_evaluated += 1;
             
             // Check if we can still use this tile
             if !self.usage_tracker.can_use_image(&tile.path) {
+                rejected_usage += 1;
+                continue;
+            }
+            
+            // Check basic adjacency constraint (no same image adjacent)
+            if !self.can_place_at_position(&tile.path, position) {
+                rejected_adjacency += 1;
                 continue;
             }
             
@@ -892,12 +1000,132 @@ impl InternalMosaicGenerator {
             }
         }
         
+        if best_tile.is_none() {
+            eprintln!("🔍 PRIMARY SELECTION DEBUG for position ({}, {}): evaluated {} candidates, rejected {} for usage, {} for adjacency", 
+                position.x, position.y, candidates_evaluated, rejected_usage, rejected_adjacency);
+        }
+        
         if let Some(tile) = &best_tile {
             self.usage_tracker.use_image(&tile.path);
             self.placed_tiles[position.y][position.x] = Some(tile.path.clone());
         }
         
         best_tile
+    }
+
+    fn fallback_tile_selection(
+        &mut self,
+        target_lab: &Lab,
+        position: GridPosition,
+    ) -> Option<Arc<Tile>> {
+        // Check if we have any tiles at all
+        if self.tiles.is_empty() {
+            eprintln!("❌ FALLBACK: No tiles available for mosaic generation");
+            return None;
+        }
+
+        // Reset usage tracker and try again with only adjacency constraint
+        eprintln!("🔄 FALLBACK: Resetting usage tracker for position ({}, {})", position.x, position.y);
+        self.usage_tracker.reset();
+
+        let candidates = self.kdtree.nearest_n::<SquaredEuclidean>(
+            &[target_lab.l, target_lab.a, target_lab.b],
+            100,
+        );
+
+        let mut candidates_evaluated = 0;
+        let mut rejected_adjacency = 0;
+        
+        for candidate in candidates {
+            let tile_idx = candidate.item as usize;
+            if tile_idx >= self.tiles.len() {
+                continue; // Safety check
+            }
+            let tile = &self.tiles[tile_idx];
+            candidates_evaluated += 1;
+
+            if self.can_place_at_position(&tile.path, position) {
+                eprintln!("🔄 FALLBACK SUCCESS: Found tile {} after resetting usage tracker", 
+                    tile.path.file_name().unwrap_or_default().to_string_lossy());
+                self.usage_tracker.use_image(&tile.path);
+                self.placed_tiles[position.y][position.x] = Some(tile.path.clone());
+                return Some(tile.clone());
+            } else {
+                rejected_adjacency += 1;
+            }
+        }
+
+        eprintln!("🔍 FALLBACK DEBUG for position ({}, {}): evaluated {} candidates, rejected {} for adjacency", 
+            position.x, position.y, candidates_evaluated, rejected_adjacency);
+        None
+    }
+
+    fn final_fallback_selection(
+        &mut self,
+        target_lab: &Lab,
+        position: GridPosition,
+    ) -> Option<Arc<Tile>> {
+        // Final fallback: use the best color match without adjacency constraint
+        eprintln!("🚨 FINAL FALLBACK: Using best color match without adjacency constraint for position ({}, {})", position.x, position.y);
+        
+        let nearest = self
+            .kdtree
+            .nearest_one::<SquaredEuclidean>(&[target_lab.l, target_lab.a, target_lab.b])
+            .item;
+
+        let tile_idx = nearest as usize;
+        if tile_idx >= self.tiles.len() {
+            eprintln!(
+                "❌ FINAL FALLBACK FAILED: KD-tree returned invalid tile index: {} (max: {}) for position ({}, {})",
+                tile_idx,
+                self.tiles.len(),
+                position.x, position.y
+            );
+            return None;
+        }
+
+        let tile = &self.tiles[tile_idx];
+        
+        // Calculate color distance for logging
+        let color_distance = (
+            (target_lab.l - tile.lab_color.l).powi(2) +
+            (target_lab.a - tile.lab_color.a).powi(2) +
+            (target_lab.b - tile.lab_color.b).powi(2)
+        ).sqrt();
+        
+        eprintln!("🚨 FINAL FALLBACK SUCCESS: Using tile {} with color distance {:.2} for position ({}, {})", 
+            tile.path.file_name().unwrap_or_default().to_string_lossy(), 
+            color_distance, 
+            position.x, position.y);
+        
+        self.usage_tracker.use_image(&tile.path);
+        self.placed_tiles[position.y][position.x] = Some(tile.path.clone());
+        Some(tile.clone())
+    }
+
+    fn can_place_at_position(&self, tile_path: &PathBuf, position: GridPosition) -> bool {
+        let x = position.x;
+        let y = position.y;
+        
+        // Check adjacent positions for the same image
+        let neighbors = [
+            (x.wrapping_sub(1), y), // left
+            (x + 1, y),             // right
+            (x, y.wrapping_sub(1)), // up
+            (x, y + 1),             // down
+        ];
+
+        for (nx, ny) in neighbors {
+            if nx < self.grid_width && ny < self.grid_height {
+                if let Some(placed_path) = &self.placed_tiles[ny][nx] {
+                    if placed_path == tile_path {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        true
     }
 }
 
@@ -1069,15 +1297,15 @@ fn generate_mosaic_internal(
                 debug_log(&format!("Processing cell {}/{} (row {}, col {})", cell_index, total_cells, row + 1, col + 1));
             }
             
-            // Show progress for every 10% of cells or when verbose
-            if cell_index % (total_cells / 10).max(1) == 0 || verbose {
+            // Show progress for every 1% of cells or when verbose
+            if cell_index % (total_cells / 100).max(1) == 0 || verbose {
                 let cell_progress = cell_index as f32 / total_cells as f32;
                 let overall_progress = 0.5 + (cell_progress * 0.4); // 50% to 90%
                 let percentage = cell_progress * 100.0;
                 if verbose {
                     debug_log(&format!("Grid progress: {:.1}%", percentage));
                 } else {
-                    send_progress(overall_progress, format!("⚙️ Processing grid: {:.0}%", percentage));
+                    send_progress(overall_progress, format!("⚙️ Processing grid: {:.1}%", percentage));
                 }
             }
             let x = col * tile_width;
@@ -1100,37 +1328,116 @@ fn generate_mosaic_internal(
                         tile.path.file_name().unwrap_or_default().to_string_lossy(),
                         tile.lab_color.l, tile.lab_color.a, tile.lab_color.b));
                 }
-                // Load and resize tile image
-                if let Ok(tile_img) = image::open(&tile.path) {
-                    let tile_rgb = tile_img.to_rgb8();
-                    
-                    if verbose {
-                        debug_log(&format!("Resizing tile from {}x{} to {}x{}", 
-                            tile_rgb.width(), tile_rgb.height(), tile_width, tile_height));
+                
+                // Load and resize tile image with comprehensive error handling
+                let tile_placed = match image::open(&tile.path) {
+                    Ok(tile_img) => {
+                        let tile_rgb = tile_img.to_rgb8();
+                        
+                        if verbose {
+                            debug_log(&format!("Resizing tile from {}x{} to {}x{}", 
+                                tile_rgb.width(), tile_rgb.height(), tile_width, tile_height));
+                        }
+                        
+                        // Resize tile to fit grid cell
+                        match (
+                            FirImage::from_vec_u8(
+                                tile_rgb.width(),
+                                tile_rgb.height(),
+                                tile_rgb.into_raw(),
+                                fast_image_resize::PixelType::U8x3,
+                            ),
+                            FirImage::new(
+                                tile_width,
+                                tile_height,
+                                fast_image_resize::PixelType::U8x3,
+                            )
+                        ) {
+                            (Ok(src_image), mut dst_image) => {
+                                let resize_options = ResizeOptions::new().resize_alg(fast_image_resize::ResizeAlg::Convolution(fast_image_resize::FilterType::Lanczos3));
+                                
+                                match resizer.resize(&src_image, &mut dst_image, Some(&resize_options)) {
+                                    Ok(_) => {
+                                        // Simple color adjustment (without the complex API)
+                                        let adjusted_pixels = dst_image.buffer().to_vec();
+                                        
+                                        // Copy to output image
+                                        for (dy, row_pixels) in adjusted_pixels.chunks_exact(tile_width as usize * 3).enumerate() {
+                                            for (dx, pixel) in row_pixels.chunks_exact(3).enumerate() {
+                                                let out_x = x + dx as u32;
+                                                let out_y = y + dy as u32;
+                                                
+                                                if out_x < output_img.width() && out_y < output_img.height() {
+                                                    output_img.put_pixel(
+                                                        out_x,
+                                                        out_y,
+                                                        Rgb([pixel[0], pixel[1], pixel[2]]),
+                                                    );
+                                                }
+                                            }
+                                        }
+                                        
+                                        if verbose {
+                                            debug_log(&format!("Tile placed at position ({}, {})", x, y));
+                                        }
+                                        true
+                                    }
+                                    Err(e) => {
+                                        log_message(&format!("⚠️ Failed to resize tile {}: {}", tile.path.display(), e));
+                                        false
+                                    }
+                                }
+                            }
+                            _ => {
+                                log_message(&format!("⚠️ Failed to create resize images for tile {}", tile.path.display()));
+                                false
+                            }
+                        }
                     }
+                    Err(e) => {
+                        log_message(&format!("⚠️ Failed to load tile image {}: {}", tile.path.display(), e));
+                        false
+                    }
+                };
+                
+                // If tile placement failed, fill with target region as fallback
+                if !tile_placed {
+                    log_message(&format!("⚠️ Using target region as fallback for cell ({}, {})", col + 1, row + 1));
                     
-                    // Resize tile to fit grid cell
-                    let src_image = FirImage::from_vec_u8(
-                        tile_rgb.width(),
-                        tile_rgb.height(),
-                        tile_rgb.into_raw(),
-                        fast_image_resize::PixelType::U8x3,
-                    ).unwrap();
+                    // Use the target region itself as a fallback
+                    let target_rgb = target_region.to_rgb8();
+                    let target_resized = if target_rgb.width() != tile_width || target_rgb.height() != tile_height {
+                        // Resize the target region to match tile dimensions
+                        let target_raw = target_rgb.into_raw();
+                        match (
+                            FirImage::from_vec_u8(
+                                target_region.width(),
+                                target_region.height(),
+                                target_raw.clone(),
+                                fast_image_resize::PixelType::U8x3,
+                            ),
+                            FirImage::new(
+                                tile_width,
+                                tile_height,
+                                fast_image_resize::PixelType::U8x3,
+                            )
+                        ) {
+                            (Ok(src_image), mut dst_image) => {
+                                let resize_options = ResizeOptions::new().resize_alg(fast_image_resize::ResizeAlg::Convolution(fast_image_resize::FilterType::Lanczos3));
+                                if resizer.resize(&src_image, &mut dst_image, Some(&resize_options)).is_ok() {
+                                    dst_image.buffer().to_vec()
+                                } else {
+                                    target_raw
+                                }
+                            }
+                            _ => target_raw
+                        }
+                    } else {
+                        target_rgb.into_raw()
+                    };
                     
-                    let mut dst_image = FirImage::new(
-                        tile_width,
-                        tile_height,
-                        fast_image_resize::PixelType::U8x3,
-                    );
-                    
-                    let resize_options = ResizeOptions::new().resize_alg(fast_image_resize::ResizeAlg::Convolution(fast_image_resize::FilterType::Lanczos3));
-                    resizer.resize(&src_image, &mut dst_image, Some(&resize_options)).unwrap();
-                    
-                    // Simple color adjustment (without the complex API)
-                    let adjusted_pixels = dst_image.buffer().to_vec();
-                    
-                    // Copy to output image
-                    for (dy, row_pixels) in adjusted_pixels.chunks_exact(tile_width as usize * 3).enumerate() {
+                    // Copy target region to output image
+                    for (dy, row_pixels) in target_resized.chunks_exact(tile_width as usize * 3).enumerate() {
                         for (dx, pixel) in row_pixels.chunks_exact(3).enumerate() {
                             let out_x = x + dx as u32;
                             let out_y = y + dy as u32;
@@ -1144,15 +1451,58 @@ fn generate_mosaic_internal(
                             }
                         }
                     }
-                    
-                    if verbose {
-                        debug_log(&format!("Tile placed at position ({}, {})", x, y));
-                    }
-                } else if verbose {
-                    debug_log(&format!("Failed to load tile image: {}", tile.path.display()));
                 }
-            } else if verbose {
-                debug_log(&format!("No suitable tile found for position ({}, {})", col + 1, row + 1));
+            } else {
+                // This should NEVER happen with the new fallback methods, but handle it anyway
+                log_message(&format!("❌ CRITICAL: No tile found for position ({}, {}) - using target region", col + 1, row + 1));
+                
+                // Use the target region as a fallback
+                let target_rgb = target_region.to_rgb8();
+                let target_resized = if target_rgb.width() != tile_width || target_rgb.height() != tile_height {
+                    // Resize the target region to match tile dimensions
+                    let target_raw = target_rgb.into_raw();
+                    match (
+                        FirImage::from_vec_u8(
+                            target_region.width(),
+                            target_region.height(),
+                            target_raw.clone(),
+                            fast_image_resize::PixelType::U8x3,
+                        ),
+                        FirImage::new(
+                            tile_width,
+                            tile_height,
+                            fast_image_resize::PixelType::U8x3,
+                        )
+                    ) {
+                        (Ok(src_image), mut dst_image) => {
+                            let resize_options = ResizeOptions::new().resize_alg(fast_image_resize::ResizeAlg::Convolution(fast_image_resize::FilterType::Lanczos3));
+                            if resizer.resize(&src_image, &mut dst_image, Some(&resize_options)).is_ok() {
+                                dst_image.buffer().to_vec()
+                            } else {
+                                target_raw
+                            }
+                        }
+                        _ => target_raw
+                    }
+                } else {
+                    target_rgb.into_raw()
+                };
+                
+                // Copy target region to output image
+                for (dy, row_pixels) in target_resized.chunks_exact(tile_width as usize * 3).enumerate() {
+                    for (dx, pixel) in row_pixels.chunks_exact(3).enumerate() {
+                        let out_x = x + dx as u32;
+                        let out_y = y + dy as u32;
+                        
+                        if out_x < output_img.width() && out_y < output_img.height() {
+                            output_img.put_pixel(
+                                out_x,
+                                out_y,
+                                Rgb([pixel[0], pixel[1], pixel[2]]),
+                            );
+                        }
+                    }
+                }
             }
         }
     }
@@ -1464,11 +1814,13 @@ mod tests {
         
         // Both should complete successfully, but we can't easily test 
         // output differences without mocking stdout
+        let (progress_sender, _) = mpsc::unbounded_channel();
         let result_verbose = generate_mosaic_internal(
             target_path.clone(),
             material_dir.clone(),
             output_path.clone(),
             verbose_settings,
+            progress_sender,
         );
         
         assert!(result_verbose.is_ok(), "Verbose mosaic generation should succeed");
@@ -1477,11 +1829,13 @@ mod tests {
         // Clean up for second test
         std::fs::remove_file(&output_path).unwrap();
         
+        let (progress_sender2, _) = mpsc::unbounded_channel();
         let result_non_verbose = generate_mosaic_internal(
             target_path,
             material_dir,
             output_path.clone(),
             non_verbose_settings,
+            progress_sender2,
         );
         
         assert!(result_non_verbose.is_ok(), "Non-verbose mosaic generation should succeed");
@@ -1609,5 +1963,288 @@ mod tests {
         let mut app_toggled = app;
         app_toggled.update(Message::VerboseLoggingToggled(true));
         assert_eq!(app_toggled.settings.verbose_logging, true);
+    }
+
+    // New fallback scenario tests
+    #[test]
+    fn test_internal_mosaic_generator_creation() {
+        use std::path::PathBuf;
+        
+        // Create test tiles
+        let tiles = vec![
+            Arc::new(Tile {
+                path: PathBuf::from("test1.png"),
+                lab_color: Lab::new(50.0, 0.0, 0.0),
+                aspect_ratio: 1.0,
+            }),
+            Arc::new(Tile {
+                path: PathBuf::from("test2.png"),
+                lab_color: Lab::new(75.0, 10.0, 5.0),
+                aspect_ratio: 1.0,
+            }),
+        ];
+        
+        let similarity_db = SimilarityDatabase::new();
+        let generator = InternalMosaicGenerator::new(
+            tiles,
+            2,
+            2,
+            3,
+            similarity_db,
+            0.3,
+        );
+        
+        assert_eq!(generator.tiles.len(), 2);
+        assert_eq!(generator.grid_width, 2);
+        assert_eq!(generator.grid_height, 2);
+        assert_eq!(generator.adjacency_penalty_weight, 0.3);
+    }
+    
+    #[test]
+    fn test_internal_mosaic_generator_empty_tiles() {
+        let tiles = Vec::new();
+        let similarity_db = SimilarityDatabase::new();
+        let mut generator = InternalMosaicGenerator::new(
+            tiles,
+            2,
+            2,
+            3,
+            similarity_db,
+            0.3,
+        );
+        
+        let target_lab = Lab::new(50.0, 0.0, 0.0);
+        let position = GridPosition { x: 0, y: 0 };
+        
+        let result = generator.find_best_tile_for_position(&target_lab, position);
+        assert!(result.is_none(), "Should return None when no tiles are available");
+    }
+    
+    #[test]
+    fn test_can_place_at_position() {
+        use std::path::PathBuf;
+        
+        let tiles = vec![
+            Arc::new(Tile {
+                path: PathBuf::from("test1.png"),
+                lab_color: Lab::new(50.0, 0.0, 0.0),
+                aspect_ratio: 1.0,
+            }),
+        ];
+        
+        let similarity_db = SimilarityDatabase::new();
+        let mut generator = InternalMosaicGenerator::new(
+            tiles,
+            3,
+            3,
+            3,
+            similarity_db,
+            0.3,
+        );
+        
+        let tile_path = PathBuf::from("test1.png");
+        let position = GridPosition { x: 1, y: 1 };
+        
+        // Should be able to place initially
+        assert!(generator.can_place_at_position(&tile_path, position));
+        
+        // Place the tile at position (0, 1) - left of target position
+        generator.placed_tiles[1][0] = Some(tile_path.clone());
+        
+        // Should not be able to place same tile adjacent to itself
+        assert!(!generator.can_place_at_position(&tile_path, position));
+    }
+    
+    #[test]
+    fn test_fallback_tile_selection_with_adjacency_constraints() {
+        use std::path::PathBuf;
+        
+        let tiles = vec![
+            Arc::new(Tile {
+                path: PathBuf::from("test1.png"),
+                lab_color: Lab::new(50.0, 0.0, 0.0),
+                aspect_ratio: 1.0,
+            }),
+            Arc::new(Tile {
+                path: PathBuf::from("test2.png"),
+                lab_color: Lab::new(75.0, 10.0, 5.0),
+                aspect_ratio: 1.0,
+            }),
+        ];
+        
+        let similarity_db = SimilarityDatabase::new();
+        let mut generator = InternalMosaicGenerator::new(
+            tiles,
+            2,
+            2,
+            1, // Very low usage limit to force fallback
+            similarity_db,
+            0.3,
+        );
+        
+        let target_lab = Lab::new(50.0, 0.0, 0.0);
+        let position1 = GridPosition { x: 0, y: 0 };
+        let position2 = GridPosition { x: 1, y: 0 };
+        
+        // First placement should succeed
+        let result1 = generator.find_best_tile_for_position(&target_lab, position1);
+        assert!(result1.is_some(), "First placement should succeed");
+        
+        // Second placement might need to use fallback due to usage constraints
+        let result2 = generator.find_best_tile_for_position(&target_lab, position2);
+        assert!(result2.is_some(), "Second placement should succeed with fallback");
+    }
+    
+    #[test]
+    fn test_final_fallback_selection() {
+        use std::path::PathBuf;
+        
+        let tiles = vec![
+            Arc::new(Tile {
+                path: PathBuf::from("test1.png"),
+                lab_color: Lab::new(50.0, 0.0, 0.0),
+                aspect_ratio: 1.0,
+            }),
+        ];
+        
+        let similarity_db = SimilarityDatabase::new();
+        let mut generator = InternalMosaicGenerator::new(
+            tiles,
+            2,
+            2,
+            3,
+            similarity_db,
+            0.3,
+        );
+        
+        let target_lab = Lab::new(50.0, 0.0, 0.0);
+        let position = GridPosition { x: 0, y: 0 };
+        
+        // Final fallback should always succeed if tiles are available
+        let result = generator.final_fallback_selection(&target_lab, position);
+        assert!(result.is_some(), "Final fallback should always succeed when tiles exist");
+        
+        // Verify the tile was placed
+        assert!(generator.placed_tiles[0][0].is_some(), "Tile should be placed in grid");
+    }
+    
+    #[test]
+    fn test_comprehensive_fallback_scenario() {
+        use std::path::PathBuf;
+        
+        let tiles = vec![
+            Arc::new(Tile {
+                path: PathBuf::from("test1.png"),
+                lab_color: Lab::new(50.0, 0.0, 0.0),
+                aspect_ratio: 1.0,
+            }),
+            Arc::new(Tile {
+                path: PathBuf::from("test2.png"),
+                lab_color: Lab::new(75.0, 10.0, 5.0),
+                aspect_ratio: 1.0,
+            }),
+        ];
+        
+        let similarity_db = SimilarityDatabase::new();
+        let mut generator = InternalMosaicGenerator::new(
+            tiles,
+            2,
+            2,
+            1, // Very restrictive usage limit
+            similarity_db,
+            0.8, // High adjacency penalty
+        );
+        
+        let target_lab = Lab::new(50.0, 0.0, 0.0);
+        
+        // Fill all positions - should trigger various fallback scenarios
+        for y in 0..2 {
+            for x in 0..2 {
+                let position = GridPosition { x, y };
+                let result = generator.find_best_tile_for_position(&target_lab, position);
+                assert!(result.is_some(), "All positions should be filled even with restrictive constraints");
+            }
+        }
+        
+        // Verify all positions were filled
+        for y in 0..2 {
+            for x in 0..2 {
+                assert!(generator.placed_tiles[y][x].is_some(), 
+                    "Position ({}, {}) should be filled", x, y);
+            }
+        }
+    }
+    
+    #[test]
+    fn test_find_best_tile_primary_with_detailed_logging() {
+        use std::path::PathBuf;
+        
+        let tiles = vec![
+            Arc::new(Tile {
+                path: PathBuf::from("test1.png"),
+                lab_color: Lab::new(50.0, 0.0, 0.0),
+                aspect_ratio: 1.0,
+            }),
+            Arc::new(Tile {
+                path: PathBuf::from("test2.png"),
+                lab_color: Lab::new(75.0, 10.0, 5.0),
+                aspect_ratio: 1.0,
+            }),
+        ];
+        
+        let similarity_db = SimilarityDatabase::new();
+        let mut generator = InternalMosaicGenerator::new(
+            tiles,
+            2,
+            2,
+            3,
+            similarity_db,
+            0.3,
+        );
+        
+        let target_lab = Lab::new(50.0, 0.0, 0.0);
+        let position = GridPosition { x: 0, y: 0 };
+        
+        // Primary selection should succeed
+        let result = generator.find_best_tile_primary(&target_lab, position);
+        assert!(result.is_some(), "Primary selection should succeed with available tiles");
+        
+        // Verify the tile was placed
+        assert!(generator.placed_tiles[0][0].is_some(), "Tile should be placed in grid");
+    }
+    
+    #[test]
+    fn test_usage_tracker_reset_in_fallback() {
+        use std::path::PathBuf;
+        
+        let tiles = vec![
+            Arc::new(Tile {
+                path: PathBuf::from("test1.png"),
+                lab_color: Lab::new(50.0, 0.0, 0.0),
+                aspect_ratio: 1.0,
+            }),
+        ];
+        
+        let similarity_db = SimilarityDatabase::new();
+        let mut generator = InternalMosaicGenerator::new(
+            tiles,
+            2,
+            2,
+            1, // Very low usage limit
+            similarity_db,
+            0.3,
+        );
+        
+        let target_lab = Lab::new(50.0, 0.0, 0.0);
+        let position1 = GridPosition { x: 0, y: 0 };
+        let position2 = GridPosition { x: 1, y: 1 }; // Non-adjacent position
+        
+        // First placement uses up the tile
+        let result1 = generator.find_best_tile_for_position(&target_lab, position1);
+        assert!(result1.is_some(), "First placement should succeed");
+        
+        // Second placement should succeed through fallback (usage tracker reset)
+        let result2 = generator.find_best_tile_for_position(&target_lab, position2);
+        assert!(result2.is_some(), "Second placement should succeed with fallback");
     }
 }
