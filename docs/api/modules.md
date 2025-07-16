@@ -86,6 +86,7 @@ let db = SimilarityDatabase::load_or_new(Path::new("similarity_cache.json"));
 ```
 
 **Performance Characteristics:**
+
 - Time Complexity: O(n²) for building similarities, O(1) for lookups
 - Space Complexity: O(n²) for similarity matrix
 - Disk Storage: ~100KB per 1000 tiles
@@ -105,6 +106,7 @@ let difference = calculate_delta_e_2000(&color1, &color2);
 **Returns:** Color difference (0.0 = identical, higher = more different)
 
 **Properties:**
+
 - Symmetric: `calculate_delta_e_2000(a, b) == calculate_delta_e_2000(b, a)`
 - Perceptually uniform
 - Optimized for performance
@@ -181,6 +183,7 @@ let calculator = AdjacencyPenaltyCalculator::new(&similarity_db, 0.5);
 ```
 
 **Parameters:**
+
 - `penalty_weight`: Multiplier for penalty (0.0 = disabled, 1.0 = full penalty)
 
 ##### `calculate_penalty(&self, tile_path: &PathBuf, position: GridPosition, grid: &[Vec<Option<PathBuf>>], grid_width: usize, grid_height: usize) -> f32`
@@ -219,6 +222,7 @@ if delta < 0.0 {
 ```
 
 **Performance Notes:**
+
 - O(1) for penalty calculation
 - O(n) for total cost calculation
 - O(1) for swap delta calculation
@@ -246,6 +250,7 @@ pub struct OptimizationConfig {
 ```
 
 **Default values:**
+
 - `max_iterations`: 1000
 - `initial_temperature`: 100.0
 - `temperature_decay`: 0.99995
@@ -291,6 +296,7 @@ println!("Improved by {:.1}%", result.improvement_percentage());
 ```
 
 **Algorithm:**
+
 - Uses simulated annealing with random tile swapping
 - Accepts worse solutions with probability based on temperature
 - Temperature decreases over time (cooling schedule)
@@ -305,6 +311,7 @@ let result = optimizer.optimize_greedy(&mut grid, 1000);
 ```
 
 **Algorithm:**
+
 - Only accepts swaps that improve the total cost
 - Faster than simulated annealing
 - May get stuck in local optima
@@ -337,6 +344,7 @@ println!("Optimization improved cost by {:.1}%", improvement);
 ```
 
 **Performance Characteristics:**
+
 - Time Complexity: O(iterations × grid_size)
 - Space Complexity: O(1) additional memory
 - Typical improvement: 10-30% cost reduction
@@ -409,14 +417,17 @@ let adjustment = calculate_optimal_adjustment(source, target, 0.5);
 ```
 
 **Parameters:**
+
 - `strength`: Adjustment strength (0.0 = no change, 1.0 = full adjustment)
 
 **Algorithm:**
+
 - Converts RGB to HSV for perceptual adjustments
 - Calculates optimal hue, saturation, and brightness shifts
 - Handles edge cases (low saturation, hue wraparound)
 
 **Mathematical Details:**
+
 - Hue difference calculated with wraparound (0-360°)
 - Saturation ratio clamped to prevent oversaturation
 - Brightness adjustment preserves relative luminance
@@ -485,6 +496,7 @@ visualizer.finish();
 ```
 
 **Display Characters:**
+
 - `.` - Not yet processed
 - `*` - Currently processing
 - `#` - Completed
@@ -577,6 +589,7 @@ println!("{}", tracker.summary());
 ```
 
 **Performance Characteristics:**
+
 - Minimal overhead (microseconds per call)
 - ETA accuracy improves over time
 - Memory usage: constant
@@ -617,7 +630,7 @@ visualizer.start();
 
 for tile in tiles {
     // Process tile...
-    
+
     tracker.tick();
     visualizer.complete_tile(x, y);
 }
@@ -658,6 +671,7 @@ let result: Result<DynamicImage> = adjustment.apply_to_image(&image);
 ```
 
 Common error scenarios:
+
 - File I/O errors (similarity database)
 - Image processing errors (color adjustment)
 - Invalid parameters (optimization config)

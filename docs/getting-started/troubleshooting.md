@@ -7,11 +7,13 @@ This guide covers common issues you might encounter when using the Mosaic Art Ge
 ### Rust Version Too Old
 
 **Error Message:**
+
 ```
 error: package `mosaic-rust` cannot be compiled due to multiple errors
 ```
 
 **Solution:**
+
 ```bash
 # Update Rust to the latest version
 rustup update
@@ -23,6 +25,7 @@ rustc --version
 ### Missing Build Tools
 
 **Error Message:**
+
 ```
 error: linker `cc` not found
 ```
@@ -30,12 +33,14 @@ error: linker `cc` not found
 **Solution:**
 
 **Linux (Ubuntu/Debian):**
+
 ```bash
 sudo apt update
 sudo apt install build-essential pkg-config
 ```
 
 **macOS:**
+
 ```bash
 xcode-select --install
 ```
@@ -46,11 +51,13 @@ Install Visual Studio Build Tools or Visual Studio Community.
 ### Compilation Errors
 
 **Error Message:**
+
 ```
 error: failed to compile `mosaic-rust`
 ```
 
 **Solution:**
+
 ```bash
 # Clean and rebuild
 cargo clean
@@ -65,6 +72,7 @@ rustc --version
 ### No Materials Found
 
 **Error Message:**
+
 ```
 Error: No materials found in directory 'materials'
 ```
@@ -72,6 +80,7 @@ Error: No materials found in directory 'materials'
 **Causes & Solutions:**
 
 1. **Directory doesn't exist:**
+
    ```bash
    # Create the directory
    mkdir materials
@@ -79,10 +88,11 @@ Error: No materials found in directory 'materials'
    ```
 
 2. **No supported image files:**
+
    ```bash
    # Check what's in the directory
    ls -la materials/
-   
+
    # Look for supported formats (PNG, JPG, JPEG)
    ls materials/*.{png,jpg,jpeg,PNG,JPG,JPEG}
    ```
@@ -99,6 +109,7 @@ Error: No materials found in directory 'materials'
 ### Aspect Ratio Warnings
 
 **Warning Message:**
+
 ```
 Warning: No materials match the target aspect ratio (tolerance: 0.10)
 Falling back to using all available materials
@@ -107,11 +118,13 @@ Falling back to using all available materials
 **Solutions:**
 
 1. **Increase tolerance:**
+
    ```bash
    --aspect-tolerance 0.2  # Allow ±20% difference
    ```
 
 2. **Check material aspect ratios:**
+
    ```bash
    # Use ImageMagick to check aspect ratios
    identify -format "%f: %w/%h = %[fx:w/h]\n" materials/*
@@ -128,6 +141,7 @@ Falling back to using all available materials
 ### Memory Issues
 
 **Error Message:**
+
 ```
 thread 'main' panicked at 'out of memory'
 ```
@@ -135,6 +149,7 @@ thread 'main' panicked at 'out of memory'
 **Solutions:**
 
 1. **Reduce memory usage:**
+
    ```bash
    ./target/release/mosaic-rust \
      --target photo.jpg \
@@ -146,10 +161,11 @@ thread 'main' panicked at 'out of memory'
    ```
 
 2. **Check system memory:**
+
    ```bash
    # Linux/macOS
    free -h
-   
+
    # Monitor memory usage during execution
    top -p $(pgrep mosaic-rust)
    ```
@@ -167,15 +183,17 @@ thread 'main' panicked at 'out of memory'
 **Solutions:**
 
 1. **Ensure using release build:**
+
    ```bash
    # Wrong - debug build is slow
    ./target/debug/mosaic-rust  # DON'T USE THIS
-   
+
    # Correct - release build is fast
    ./target/release/mosaic-rust  # USE THIS
    ```
 
 2. **Reduce computational load:**
+
    ```bash
    # Fast settings
    ./target/release/mosaic-rust \
@@ -190,10 +208,11 @@ thread 'main' panicked at 'out of memory'
    ```
 
 3. **Check system resources:**
+
    ```bash
    # Monitor CPU usage
    htop
-   
+
    # Check if disk I/O is limiting
    iotop
    ```
@@ -201,6 +220,7 @@ thread 'main' panicked at 'out of memory'
 ### File Permission Issues
 
 **Error Message:**
+
 ```
 Permission denied (os error 13)
 ```
@@ -208,19 +228,21 @@ Permission denied (os error 13)
 **Solutions:**
 
 1. **Check file permissions:**
+
    ```bash
    # Make sure binary is executable
    chmod +x target/release/mosaic-rust
-   
+
    # Check target image permissions
    ls -la photo.jpg
    ```
 
 2. **Check directory permissions:**
+
    ```bash
    # Ensure materials directory is readable
    ls -la materials/
-   
+
    # Ensure output directory is writable
    touch test-output.jpg && rm test-output.jpg
    ```
@@ -228,6 +250,7 @@ Permission denied (os error 13)
 ### Similarity Database Issues
 
 **Error Message:**
+
 ```
 Error: Failed to load similarity database
 ```
@@ -235,6 +258,7 @@ Error: Failed to load similarity database
 **Solutions:**
 
 1. **Rebuild similarity database:**
+
    ```bash
    ./target/release/mosaic-rust \
      --target photo.jpg \
@@ -244,10 +268,11 @@ Error: Failed to load similarity database
    ```
 
 2. **Delete corrupted database:**
+
    ```bash
    # Remove the database file
    rm similarity_db.json
-   
+
    # Run again to rebuild
    ./target/release/mosaic-rust ...
    ```
@@ -261,11 +286,13 @@ Error: Failed to load similarity database
 **Solutions:**
 
 1. **Increase color adjustment:**
+
    ```bash
    --color-adjustment-strength 0.6
    ```
 
 2. **Use more diverse materials:**
+
    ```bash
    --max-materials 1500
    ```
@@ -283,11 +310,13 @@ Error: Failed to load similarity database
 **Solutions:**
 
 1. **Increase adjacency penalty:**
+
    ```bash
    --adjacency-penalty-weight 0.4
    ```
 
 2. **Limit material usage:**
+
    ```bash
    --max-usage-per-image 2
    ```
@@ -304,12 +333,14 @@ Error: Failed to load similarity database
 **Solutions:**
 
 1. **Increase grid resolution:**
+
    ```bash
    --grid-w 120
    --grid-h 80
    ```
 
 2. **Use higher resolution materials:**
+
    ```bash
    # Ensure materials are at least 512x512
    identify -format "%f: %wx%h\n" materials/* | head -10
@@ -365,11 +396,13 @@ time ./target/release/mosaic-rust \
 ### Using Debug Build
 
 **Wrong:**
+
 ```bash
 ./target/debug/mosaic-rust  # Very slow!
 ```
 
 **Correct:**
+
 ```bash
 ./target/release/mosaic-rust  # Fast and optimized
 ```
@@ -377,11 +410,13 @@ time ./target/release/mosaic-rust \
 ### Unrealistic Grid Sizes
 
 **Wrong:**
+
 ```bash
 --grid-w 500 --grid-h 500  # 250,000 tiles - too many!
 ```
 
 **Correct:**
+
 ```bash
 --grid-w 100 --grid-h 100  # 10,000 tiles - reasonable
 ```
@@ -389,11 +424,13 @@ time ./target/release/mosaic-rust \
 ### Conflicting Parameters
 
 **Wrong:**
+
 ```bash
 --max-materials 10 --grid-w 100 --grid-h 100  # Not enough materials for 10,000 tiles
 ```
 
 **Correct:**
+
 ```bash
 --max-materials 1000 --grid-w 100 --grid-h 100  # Sufficient materials
 ```
@@ -403,11 +440,13 @@ time ./target/release/mosaic-rust \
 If you're still experiencing issues:
 
 ### 1. Check the Documentation
+
 - [CLI Reference](/guide/cli-reference) - Complete parameter guide
 - [Performance Tuning](/guide/performance-tuning) - Optimization tips
 - [Examples](/guide/examples) - Working configurations
 
 ### 2. Search Existing Issues
+
 Visit [GitHub Issues](https://github.com/naporin0624/mosaic-art-rust/issues) to see if others have encountered similar problems.
 
 ### 3. Create a Bug Report
@@ -434,7 +473,7 @@ ls -la *.jpg
 - **Rust Version**: Output of `rustc --version`
 - **Command Used**: Full command line with parameters
 - **Error Message**: Complete error output
-- **File Information**: 
+- **File Information**:
   - Target image size and format
   - Number of materials
   - Material image sizes
@@ -443,28 +482,35 @@ ls -la *.jpg
 ## Prevention Tips
 
 ### 1. Start Small
+
 Always test with smaller configurations first:
+
 ```bash
 # Test configuration
 --grid-w 20 --grid-h 15 --max-materials 50
 ```
 
 ### 2. Use Release Build
+
 Always use the optimized release build:
+
 ```bash
 cargo build --release
 ./target/release/mosaic-rust
 ```
 
 ### 3. Monitor Resources
+
 Keep an eye on memory and CPU usage during processing.
 
 ### 4. Validate Inputs
+
 - Check that target image exists and is readable
 - Verify materials directory contains supported images
 - Ensure sufficient disk space for output
 
 ### 5. Keep Settings Reasonable
+
 - Grid sizes under 200×200
 - Material counts under 5,000
 - Optimization iterations under 10,000

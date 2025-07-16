@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a high-performance mosaic art generator written in Rust that creates stunning mosaic images by intelligently replacing sections of a target image with smaller material images based on perceptual color similarity in Lab color space. The project emphasizes performance, quality, and comprehensive testing with 111 tests achieving significant code coverage.
+This is a high-performance mosaic art generator written in Rust that creates stunning mosaic images by intelligently replacing sections of a target image with smaller material images based on perceptual color similarity in Lab color space. The project emphasizes performance, quality, and comprehensive testing with 115 tests achieving significant code coverage.
+
+**Recent Enhancement (2025-01-11)**: The GUI version has been significantly improved with comprehensive fallback mechanisms that ensure no grid cells remain empty (black) in generated mosaics, achieving complete feature parity with the CLI version's robustness.
 
 ## Development Environment
 
@@ -26,7 +28,7 @@ cargo build
 # Release build (with optimizations - includes LTO, opt-level 3, single codegen unit)
 cargo build --release
 
-# Run all tests (111 tests total)
+# Run all tests (115 tests total)
 cargo test
 
 # Run a specific test
@@ -280,7 +282,7 @@ mosaic-rust/
 The project includes a comprehensive GitHub Actions workflow in `.github/workflows/ci.yml`:
 
 - **Check**: `cargo check` validation
-- **Test**: Full test suite execution (111 tests)
+- **Test**: Full test suite execution (115 tests)
 - **Format**: `cargo fmt --all -- --check` (required for CI)
 - **Clippy**: Linting with `cargo clippy -- -D clippy::all -A clippy::too_many_arguments`
 - **Coverage**: Code coverage via `cargo-tarpaulin` with GitHub Pages deployment

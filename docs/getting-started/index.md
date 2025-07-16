@@ -43,6 +43,7 @@ Here's a preview of what you'll be able to do:
 ```
 
 This command will:
+
 - Use `photo.jpg` as the target image
 - Source materials from the `./materials` directory
 - Generate a 50×28 grid mosaic (default)

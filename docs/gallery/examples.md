@@ -33,16 +33,16 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 
 ### Technical Details
 
-| Parameter | Value | Purpose |
-|-----------|--------|---------|
-| **Grid Size** | 206×116 | High resolution for detailed output |
-| **Total Tiles** | 23,896 | Maximum detail preservation |
-| **Materials** | 2,849 VRChat screenshots | Diverse color palette |
-| **Max Usage** | 9 per image | Allow reuse while maintaining variety |
-| **Adjacency Weight** | 0.25 | Moderate pattern prevention |
-| **Optimization** | 2,000 iterations | High-quality tile placement |
-| **Color Adjustment** | 0.4 strength | Enhanced color matching |
-| **Processing Time** | ~1.5 hours | High-quality result requires patience |
+| Parameter            | Value                    | Purpose                               |
+| -------------------- | ------------------------ | ------------------------------------- |
+| **Grid Size**        | 206×116                  | High resolution for detailed output   |
+| **Total Tiles**      | 23,896                   | Maximum detail preservation           |
+| **Materials**        | 2,849 VRChat screenshots | Diverse color palette                 |
+| **Max Usage**        | 9 per image              | Allow reuse while maintaining variety |
+| **Adjacency Weight** | 0.25                     | Moderate pattern prevention           |
+| **Optimization**     | 2,000 iterations         | High-quality tile placement           |
+| **Color Adjustment** | 0.4 strength             | Enhanced color matching               |
+| **Processing Time**  | ~1.5 hours               | High-quality result requires patience |
 
 ### Key Features Demonstrated
 
@@ -55,6 +55,7 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 ## Performance Comparison Examples
 
 ### Quick Preview (30 seconds)
+
 ```bash
 ./target/release/mosaic-rust \
   --target photo.jpg \
@@ -70,6 +71,7 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 **Use Case**: Rapid prototyping and concept validation
 
 ### Balanced Quality (2-5 minutes)
+
 ```bash
 ./target/release/mosaic-rust \
   --target photo.jpg \
@@ -85,6 +87,7 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 **Use Case**: Production-ready results with reasonable processing time
 
 ### Ultra High Quality (30+ minutes)
+
 ```bash
 ./target/release/mosaic-rust \
   --target photo.jpg \
@@ -103,6 +106,7 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 ## Specialized Use Cases
 
 ### Portrait Photography
+
 ```bash
 ./target/release/mosaic-rust \
   --target portrait.jpg \
@@ -118,12 +122,14 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 ```
 
 **Key Features**:
+
 - 3:4 aspect ratio suitable for portraits
 - Limited material reuse for maximum variety
 - Strong color adjustment for accurate skin tones
 - Tight aspect ratio tolerance for better fitting
 
 ### Landscape Artwork
+
 ```bash
 ./target/release/mosaic-rust \
   --target landscape.jpg \
@@ -138,12 +144,14 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 ```
 
 **Key Features**:
+
 - 16:9 aspect ratio for panoramic views
 - High adjacency penalty for natural transitions
 - Extended optimization for smooth gradients
 - Moderate color adjustment to preserve natural tones
 
 ### Logo Recreation
+
 ```bash
 ./target/release/mosaic-rust \
   --target logo.png \
@@ -159,6 +167,7 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 ```
 
 **Key Features**:
+
 - Square grid for logo proportions
 - Unique tiles only for maximum variety
 - High adjacency penalty for clean edges
@@ -167,18 +176,21 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 ## Material Collection Tips
 
 ### VRChat Screenshots (Used in Birthday Example)
+
 - **Resolution**: 7680×4320 and 4320×7680
 - **Color Diversity**: Wide range of environments and lighting
 - **Content Variety**: Different scenes, characters, and settings
 - **Quality**: High-resolution source material for sharp tiles
 
 ### Photography Collections
+
 - **Nature Photos**: Excellent for organic, flowing mosaics
 - **Urban Scenes**: Great for architectural and geometric subjects
 - **Abstract Art**: Perfect for creative and artistic interpretations
 - **Product Photos**: Ideal for commercial and branded content
 
 ### Optimal Material Characteristics
+
 - **Resolution**: 512×512 or higher for sharp details
 - **Color Range**: Diverse colors covering the entire spectrum
 - **Aspect Ratio**: Consistent ratios within collection
@@ -188,6 +200,7 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 ## Performance Optimization Examples
 
 ### Memory-Constrained Systems
+
 ```bash
 ./target/release/mosaic-rust \
   --target photo.jpg \
@@ -200,6 +213,7 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 ```
 
 ### CPU-Optimized Processing
+
 ```bash
 ./target/release/mosaic-rust \
   --target photo.jpg \
@@ -213,6 +227,7 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 ```
 
 ### Disk Space Efficient
+
 ```bash
 ./target/release/mosaic-rust \
   --target photo.jpg \
@@ -228,6 +243,7 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 ### Evaluating Results
 
 **✅ Excellent Quality Indicators**:
+
 - Clear subject recognition at normal viewing distance
 - Smooth color transitions in gradients
 - Good variety in tile selection across regions
@@ -235,6 +251,7 @@ This page showcases real-world examples of mosaics created with the Mosaic Art G
 - Accurate color representation of original
 
 **⚠️ Areas for Improvement**:
+
 - Obvious tile repetition in nearby areas
 - Poor color matching in specific regions
 - Loss of important detail in high-contrast areas

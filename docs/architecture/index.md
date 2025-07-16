@@ -15,21 +15,25 @@ Each phase is optimized for performance and can be configured independently.
 ## Core Components
 
 ### 🎨 **Color Processing Engine**
+
 - Lab color space for perceptual uniformity
 - k-d tree indexing for O(log n) search
 - SIMD-optimized color calculations
 
 ### 🧩 **Tile Placement System**
+
 - Multi-factor scoring algorithm
 - Usage tracking for variety
 - Adjacency constraints for quality
 
 ### ⚡ **Optimization Engine**
+
 - Simulated annealing algorithm
 - Parallel processing support
 - Configurable cooling schedules
 
 ### 📊 **Performance Monitoring**
+
 - Real-time progress visualization
 - ETA calculations
 - Memory usage tracking

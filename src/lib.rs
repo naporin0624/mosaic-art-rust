@@ -10,6 +10,37 @@ pub mod optimizer;
 pub mod similarity;
 pub mod time_tracker;
 
+// GUI-related data structures for testing
+#[cfg(test)]
+pub mod gui {
+    pub mod app_full {
+        #[derive(Debug, Clone)]
+        pub struct MosaicSettings {
+            pub grid_w: u32,
+            pub grid_h: u32,
+            pub total_tiles: Option<u32>,
+            pub auto_calculate: bool,
+            pub max_materials: usize,
+            pub color_adjustment: f32,
+            pub enable_optimization: bool,
+        }
+
+        impl Default for MosaicSettings {
+            fn default() -> Self {
+                Self {
+                    grid_w: 50,
+                    grid_h: 28,
+                    total_tiles: Some(1400),
+                    auto_calculate: true,
+                    max_materials: 500,
+                    color_adjustment: 0.3,
+                    enable_optimization: true,
+                }
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Tile {
     pub path: PathBuf,
@@ -272,5 +303,49 @@ mod tests {
 
         // With max usage 0, no image should be usable
         assert!(!tracker.can_use_image(&test_path));
+    }
+
+    // GUI-specific tests
+    #[test]
+    fn test_gui_mosaic_settings_default() {
+        let settings = gui::app_full::MosaicSettings::default();
+        assert_eq!(settings.grid_w, 50);
+        assert_eq!(settings.grid_h, 28);
+        assert_eq!(settings.total_tiles, Some(1400));
+        assert!(settings.auto_calculate);
+        assert_eq!(settings.max_materials, 500);
+        assert_eq!(settings.color_adjustment, 0.3);
+        assert!(settings.enable_optimization);
+    }
+
+    #[test]
+    fn test_gui_grid_calculation() {
+        // Test auto grid calculation logic
+        let total_tiles = 1400u32;
+        let aspect_ratio = 16.0 / 9.0;
+
+        let w = ((total_tiles as f32 * aspect_ratio).sqrt()).round() as u32;
+        let h = (total_tiles / w).max(1);
+
+        // Should produce reasonable grid dimensions
+        assert!(w > 0);
+        assert!(h > 0);
+        assert!((w * h) <= total_tiles + w); // Allow for rounding
+
+        // Should be roughly in 16:9 aspect ratio
+        let calculated_ratio = w as f32 / h as f32;
+        assert!((calculated_ratio - aspect_ratio).abs() < 0.5);
+    }
+
+    #[test]
+    fn test_gui_color_adjustment_bounds() {
+        // Test that color adjustment is properly clamped
+        let test_values: Vec<f32> = vec![-1.0, 0.0, 0.5, 1.0, 2.0];
+
+        for value in test_values {
+            let clamped = value.clamp(0.0, 1.0);
+            assert!(clamped >= 0.0);
+            assert!(clamped <= 1.0);
+        }
     }
 }

@@ -81,6 +81,7 @@ cargo build
 ```
 
 This creates a debug build in `target/debug/` with:
+
 - Fast compilation
 - Debug symbols included
 - No optimizations
@@ -95,6 +96,7 @@ cargo build --release
 ```
 
 This creates an optimized build in `target/release/` with:
+
 - **Link Time Optimization (LTO)** enabled
 - **Maximum optimization level (3)**
 - **Single codegen unit** for better optimization
@@ -194,12 +196,14 @@ docker run -v $(pwd):/data mosaic-rust \
 ### Common Issues
 
 **Error: "rustc version too old"**
+
 ```bash
 # Update Rust
 rustup update
 ```
 
 **Error: "linker not found"**
+
 ```bash
 # Linux: Install build tools
 sudo apt install build-essential
@@ -209,6 +213,7 @@ xcode-select --install
 ```
 
 **Error: "failed to compile"**
+
 ```bash
 # Clean and rebuild
 cargo clean
@@ -216,6 +221,7 @@ cargo build --release
 ```
 
 **Performance Issues**
+
 ```bash
 # Make sure you're using release build
 cargo build --release  # NOT just `cargo build`

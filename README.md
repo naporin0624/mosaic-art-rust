@@ -33,6 +33,13 @@ Transform any image into a detailed mosaic composed of thousands of smaller imag
 
 ## Features
 
+### Dual Interface Support
+
+- **🖥️ Graphical User Interface (GUI)**: Modern cross-platform desktop application with iced framework
+- **⌨️ Command Line Interface (CLI)**: Full-featured terminal application for automation and scripting
+
+### Core Algorithm Features
+
 - **Perceptual Color Matching**: Uses Lab color space with k-d tree (O(log n) search) for perceptually accurate matching
 - **Parallel Processing**: Automatic parallelization with Rayon for multi-core performance
 - **Smart Placement Algorithm**: Multi-factor scoring system considering:
@@ -42,7 +49,14 @@ Transform any image into a detailed mosaic composed of thousands of smaller imag
 - **Color Adjustment**: Advanced HSV-based color adjustment to better match target regions
 - **Similarity Database**: Pre-computed similarity matrix with JSON persistence for faster subsequent runs
 - **Post-placement Optimization**: Simulated annealing algorithm for iterative improvement
+
+### User Experience Features
+
 - **Real-time Visualization**: ASCII grid display and progress tracking with ETA
+- **Cross-Platform Support**: Works on Windows, macOS, and Linux
+- **Native File Dialogs**: Integrated file picker with format filtering
+- **Theme Support**: Light and dark themes for comfortable usage
+- **Auto Grid Calculation**: Intelligent grid dimension calculation from tile count
 - **Aspect Ratio Matching**: Intelligent filtering with fallback strategies
 - **SIMD Optimization**: Hardware-accelerated image resizing via fast_image_resize
 
@@ -78,7 +92,29 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 cargo build --release
 ```
 
+### Building Individual Components
+
+You can build just the GUI or CLI independently:
+
+```bash
+# Build only the GUI application (recommended for desktop users)
+cargo build --release --bin mosaic-gui
+
+# Build only the CLI application (for servers/automation)
+cargo build --release --bin mosaic-rust
+
+# Build both (default behavior)
+cargo build --release
+```
+
+**Benefits of independent building:**
+- **Faster compilation**: Only builds what you need
+- **Smaller binary size**: No unused dependencies
+- **Deployment flexibility**: Ship GUI-only or CLI-only applications
+
 ## Quick Start
+
+### Command Line Interface (CLI)
 
 ```bash
 # Basic usage with default settings
@@ -99,6 +135,67 @@ cargo build --release
   --color-adjustment-strength 0.4 \
   --optimization-iterations 2000
 ```
+
+### Graphical User Interface (GUI)
+
+For an intuitive visual interface, use the GUI application:
+
+```bash
+# Launch the GUI application
+./target/release/mosaic-gui
+
+# Or run from source
+cargo run --bin mosaic-gui --release
+
+# Build and run GUI only (no CLI dependencies)
+cargo build --release --bin mosaic-gui && ./target/release/mosaic-gui
+```
+
+> **💡 Independent Application**: The GUI is completely independent from the CLI and can be built and deployed separately. It includes all mosaic generation functionality built-in.
+
+#### GUI Features
+
+The GUI provides a user-friendly interface with all CLI functionality:
+
+- **🎯 File Selection**: Easy browse buttons for target image, material directory, and output path
+- **⚙️ Grid Settings**: Visual controls for grid dimensions with auto-calculation
+- **🔧 Advanced Settings**: Full access to all optimization parameters
+- **🎨 Theme Support**: Light/dark theme toggle for comfortable usage
+- **📱 Cross-Platform**: Works on Windows, macOS, and Linux
+- **🖥️ No Terminal**: Clean desktop application (no terminal window on Windows)
+
+#### GUI Usage Guide
+
+1. **File Selection**:
+   - **Target Image**: Click "Browse" to select your source image (PNG, JPG, JPEG)
+   - **Material Directory**: Choose the folder containing your material images
+   - **Output Path**: Specify where to save the generated mosaic
+
+2. **Grid Configuration**:
+   - **Auto-Calculate**: Enable to automatically calculate optimal grid dimensions
+   - **Total Tiles**: Enter desired number of tiles (e.g., 1400 for 50×28 grid)
+   - **Manual Grid**: Directly set width and height dimensions
+
+3. **Advanced Settings**:
+   - **Max Materials**: Limit number of material images to use (affects memory usage)
+   - **Color Adjustment**: Fine-tune color matching strength (0.0-1.0)
+   - **Enable Optimization**: Toggle post-placement optimization for better results
+
+4. **Generation**:
+   - Click **"Generate Mosaic"** to start processing
+   - Use **"Toggle Theme"** to switch between light and dark modes
+
+#### Auto Grid Calculation
+
+The GUI includes an intelligent grid calculation feature:
+
+```
+For a target total of N tiles with 16:9 aspect ratio:
+- Width = √(N × 16/9) rounded to nearest integer
+- Height = N ÷ Width (minimum 1)
+```
+
+Example: 1400 tiles → 50×28 grid (actual: 1400 tiles)
 
 ## Example: High-Resolution Birthday Mosaic
 
@@ -355,9 +452,61 @@ The simulated annealing algorithm:
 
 ### Development Build
 
+### Quick Start with Build Scripts
+
+Choose the appropriate build script for your platform:
+
+**Windows (PowerShell - Recommended)**
+```powershell
+# Full build with all features
+.\build.ps1
+
+# Build specific targets
+.\build.ps1 -Target cli -Config release
+.\build.ps1 -Target gui -Config debug -Test
+
+# Development workflow
+.\dev.ps1 run-cli      # Quick CLI test
+.\dev.ps1 run-gui      # Launch GUI
+.\dev.ps1 example      # Generate showcase
+```
+
+**Windows (Command Prompt)**
+```cmd
+# Release build (recommended)
+build.bat
+
+# Debug build
+build.bat debug
+
+# Clean artifacts
+build.bat clean
+```
+
+**Linux/macOS/WSL**
 ```bash
+# Full release build
+./quick-build.sh build
+
+# Development commands
+./quick-build.sh test          # Run tests
+./quick-build.sh example       # Generate example
+./quick-build.sh format        # Format code
+```
+
+### Manual Build Commands
+
+```bash
+# Build CLI application
 cargo build
-cargo test  # Run unit tests
+
+# Build GUI application
+cargo build --bin mosaic-gui
+
+# Run all tests (111 total)
+cargo test
+
+# Code quality checks
 cargo clippy  # Lint code
 cargo fmt  # Format code
 ```
@@ -365,55 +514,101 @@ cargo fmt  # Format code
 ### Release Build with Optimizations
 
 ```bash
+# Build optimized CLI application
 cargo build --release
+
+# Build optimized GUI application  
+cargo build --bin mosaic-gui --release
 ```
+
+### Build Scripts Features
+
+- 🚀 **Cross-platform support** (Windows, Linux, macOS)
+- 🔧 **Multiple build configurations** (debug/release)
+- 🧪 **Integrated testing** with verbose output
+- 📦 **Binary installation** to local bin directory
+- 🎨 **Code formatting** and linting (rustfmt, clippy)
+- 📊 **Build summaries** with file sizes and usage examples
+- 🌈 **Colored output** for better developer experience
+
+See [BUILD_GUIDE.md](BUILD_GUIDE.md) for detailed build instructions and troubleshooting.
 
 The release profile includes:
 
 - Link Time Optimization (LTO)
 - Maximum optimization level (3)
 - Single codegen unit for better optimization
+- Windows subsystem configuration (no terminal for GUI)
 
 ## Project Structure
 
 ```
 mosaic-rust/
 ├── src/
-│   ├── main.rs              # CLI and orchestration
-│   ├── lib.rs               # Core traits and types
-│   ├── similarity.rs        # Similarity database
-│   ├── adjacency.rs         # Adjacency constraints
-│   ├── optimizer.rs         # Simulated annealing
-│   ├── color_adjustment.rs  # HSV color adjustment
+│   ├── main.rs              # CLI application entry point
+│   ├── lib.rs               # Core traits, types, and tests
+│   ├── similarity.rs        # Similarity database with JSON persistence
+│   ├── adjacency.rs         # Adjacency constraints and penalty calculation
+│   ├── optimizer.rs         # Simulated annealing optimization
+│   ├── color_adjustment.rs  # HSV color adjustment algorithms
 │   ├── grid_visualizer.rs   # ASCII progress display
-│   └── time_tracker.rs      # Performance tracking
+│   ├── time_tracker.rs      # Performance tracking and ETA
+│   └── gui/                 # GUI application
+│       ├── main.rs          # GUI application entry point
+│       └── app_full.rs      # Complete GUI implementation
+├── build.ps1               # PowerShell build script (Windows)
+├── build.bat               # Batch build script (Windows CMD)
+├── quick-build.sh          # Shell build script (Linux/macOS/WSL)
+├── dev.ps1                 # Development helper script
+├── BUILD_GUIDE.md          # Comprehensive build instructions
 ├── docs/                    # Comprehensive documentation
 │   ├── README.md            # Documentation overview
 │   ├── api/                 # API documentation
 │   │   ├── core.md          # Core API reference
 │   │   └── modules.md       # Module-specific documentation
-│   └── cli/                 # CLI documentation
-│       ├── reference.md     # Complete CLI parameter guide
-│       └── examples.md      # Usage examples and tutorials
-├── Cargo.toml               # Dependencies
+│   ├── cli/                 # CLI documentation
+│   │   ├── reference.md     # Complete CLI parameter guide
+│   │   └── examples.md      # Usage examples and tutorials
+│   └── gui/                 # GUI documentation
+│       ├── README.md        # GUI overview and usage
+│       ├── architecture.md  # GUI architecture and design
+│       └── examples.md      # GUI usage examples
+├── .claude/                 # AI assistant configuration
+│   └── commands/
+│       ├── mosaic.md        # Custom mosaic command generator
+│       ├── commit-changes.md # Git commit helper
+│       └── release.md       # Release management
+├── .github/workflows/       # CI/CD pipeline
+│   └── ci.yml               # GitHub Actions workflow
+├── Cargo.toml               # Dependencies and build configuration
 ├── CLAUDE.md                # AI assistant documentation
-└── .claude/
-    └── commands/
-        └── mosaic.md        # Custom CLI commands
+├── README.md                # Project overview and usage
+└── LICENSE                  # MIT license
 ```
 
 ## Dependencies
+
+### Core Dependencies
 
 - **image** (0.25): Core image I/O functionality
 - **fast_image_resize** (5.0): SIMD-optimized resizing with Rayon support
 - **palette** (0.7): Lab color space conversions
 - **kiddo** (5.0): High-performance k-d tree
 - **rayon** (1.10): Data parallelism
-- **clap** (4.0): CLI argument parsing
-- **indicatif** (0.17): Progress bars
 - **anyhow** (1.0): Error handling
 - **serde/serde_json** (1.0): JSON serialization
 - **rand** (0.8): Random number generation
+
+### CLI Dependencies
+
+- **clap** (4.0): CLI argument parsing with derive macros
+- **indicatif** (0.17): Progress bars and ETA display
+
+### GUI Dependencies
+
+- **iced** (0.12): Modern cross-platform GUI framework
+- **rfd** (0.14): Native file dialogs (open/save)
+- **tokio** (1.0): Async runtime for file operations
 
 ## Badge Setup
 
