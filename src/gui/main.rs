@@ -7,7 +7,8 @@ mod app_full;
 use app_full::MosaicApp;
 
 // Embed the Japanese font
-const NOTO_SANS_JP_FONT: &[u8] = include_bytes!("../../fonts/noto_sans_jp/static/NotoSansJP-Regular.ttf");
+const NOTO_SANS_JP_FONT: &[u8] =
+    include_bytes!("../../fonts/noto_sans_jp/static/NotoSansJP-Regular.ttf");
 
 pub fn main() -> iced::Result {
     let settings = Settings {
