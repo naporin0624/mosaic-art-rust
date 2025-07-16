@@ -120,6 +120,37 @@ This section contains settings that directly affect how tiles are selected, proc
 - Increase for small material collections or when color accuracy is critical
 - Monitor the generation log for usage tracking information
 
+#### Interaction with Fallback System
+
+The Max Usage Per Image setting works seamlessly with the GUI's three-stage fallback system (added 2025-01-11) to ensure no grid cells remain empty:
+
+**Fallback Behavior**:
+1. **Normal Operation**: Tiles are used up to the specified limit
+2. **When Limit Reached**: If all suitable tiles have reached their usage limit:
+   - The system automatically resets the usage tracker
+   - Previously used tiles become available again
+   - Adjacency constraints are still respected to maintain quality
+3. **Final Fallback**: If constraints still prevent placement:
+   - The system selects the best color match regardless of usage or adjacency
+   - This guarantees every cell is filled
+
+**Example Scenario**:
+- Grid: 100×100 (10,000 cells)
+- Materials: 500 images
+- Max Usage: 3 per image
+- Maximum possible placements: 1,500
+
+In this case, the fallback system will:
+1. Use each image up to 3 times (1,500 placements)
+2. Reset usage tracking for remaining 8,500 cells
+3. Continue placing tiles with best color matches
+4. Ensure all 10,000 cells are filled
+
+**Monitoring Fallback Activity**:
+Enable "Verbose logging" to see when fallback mechanisms activate:
+- "⚠️ Using fallback tile selection with reset usage tracker..."
+- "⚠️ Using final fallback - best color match without adjacency constraints..."
+
 ### Adjacency Penalty Weight (0.0-1.0)
 
 **Purpose**: Prevents similar tiles from being placed adjacent to each other, creating more natural-looking patterns.

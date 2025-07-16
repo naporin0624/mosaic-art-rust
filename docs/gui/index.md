@@ -6,6 +6,8 @@ The Mosaic Art Generator features a modern, cross-platform graphical user interf
 
 The GUI application offers a user-friendly interface for creating stunning mosaic art without needing to use the command line. It features native file dialogs, real-time validation, progress tracking, and a clean, responsive design that works across Windows, macOS, and Linux.
 
+**Recent Enhancement (2025-01-11)**: The GUI now includes a comprehensive three-stage fallback system that ensures no grid cells remain empty (black) in generated mosaics, achieving complete feature parity with the CLI version's robustness.
+
 ## Key Features
 
 ### 🖥️ Modern Interface
@@ -31,6 +33,7 @@ The GUI application offers a user-friendly interface for creating stunning mosai
 - **Grid auto-calculation**: Intelligent grid dimension calculation
 - **Performance optimization**: Full access to all optimization parameters
 - **Verbose logging**: Debug output for troubleshooting
+- **Robust fallback system**: Three-stage fallback ensures no empty cells in mosaics
 
 ## Quick Start
 

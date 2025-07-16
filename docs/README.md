@@ -20,8 +20,20 @@ User-facing documentation for command-line interface usage.
 - **[Parameter Guide](cli/parameters.md)** - Detailed parameter explanations
 - **[Performance Tuning](cli/performance.md)** - Performance optimization guidelines
 
+### GUI Documentation (`/gui/`)
+Comprehensive documentation for the graphical user interface application.
+
+- **[GUI Overview](gui/index.md)** - Overview of the GUI application and features
+- **[Getting Started](gui/getting-started.md)** - Installation and first-time setup
+- **[Interface Guide](gui/interface-guide.md)** - Complete interface walkthrough
+- **[Advanced Settings](gui/advanced-settings.md)** - Expert configuration options
+- **[Architecture](gui/architecture.md)** - Technical implementation details
+- **[Examples](gui/examples.md)** - Step-by-step tutorials and use cases
+- **[Troubleshooting](gui/troubleshooting.md)** - Common issues and solutions
+
 ## Quick Start
 
+### CLI Usage
 For users who want to quickly generate mosaic art:
 ```bash
 # Basic usage
@@ -30,6 +42,21 @@ cargo run --release -- --target photo.jpg --material-src ./materials --output mo
 # With custom grid size
 cargo run --release -- --target photo.jpg --material-src ./materials --output mosaic.jpg --grid-w 100 --grid-h 75
 ```
+
+### GUI Usage
+For users who prefer a graphical interface:
+```bash
+# Build and run GUI application
+cargo build --bin mosaic-gui --release
+./target/release/mosaic-gui
+```
+
+The GUI provides an intuitive interface with:
+- Native file dialogs for easy file selection
+- Auto-calculated grid dimensions
+- Real-time progress tracking
+- Advanced settings panel with all CLI options
+- **Robust fallback system** (Added 2025-01-11) ensuring no empty cells in mosaics
 
 For developers who want to understand the API:
 - Start with [Core API Reference](api/core.md)

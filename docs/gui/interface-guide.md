@@ -285,6 +285,49 @@ The interface shows different states during mosaic generation:
 - **Disk Usage**: Output file size depends on mosaic dimensions
 - **Network**: No network activity required
 
+## Robustness Features
+
+### Three-Stage Fallback System
+
+The GUI application includes a comprehensive fallback mechanism (added 2025-01-11) that ensures every grid cell in your mosaic is filled, preventing any black or empty cells in the final output. This system works automatically and provides complete feature parity with the CLI version's robustness.
+
+#### How It Works
+
+1. **Primary Selection Stage**:
+   - Uses the k-d tree search with all constraints enabled
+   - Respects usage limits and adjacency penalties
+   - Finds the best color-matching tile within all constraints
+
+2. **Fallback Selection Stage**:
+   - Activates when primary selection fails due to usage limits
+   - Resets the usage tracker to allow tiles to be reused
+   - Maintains adjacency constraints to prevent clustering
+   - Ensures variety while filling difficult cells
+
+3. **Final Fallback Stage**:
+   - Used as a last resort when all constraints prevent placement
+   - Ignores adjacency penalties completely
+   - Always selects the best color-matching tile
+   - Guarantees that every cell will be filled
+
+#### Monitoring Fallback Activity
+
+When **Verbose logging** is enabled in Advanced Settings, you can monitor fallback activity in the Generation Log:
+
+- **Primary selection**: No special log entries (normal operation)
+- **Fallback selection**: "⚠️ Using fallback tile selection with reset usage tracker..."
+- **Final fallback**: "⚠️ Using final fallback - best color match without adjacency constraints..."
+
+These log entries help you understand when and why the fallback system is being used, which can guide you in adjusting your settings for better results.
+
+#### Impact on Results
+
+The fallback system ensures:
+- **No empty cells**: Every position in the mosaic will have a tile
+- **Graceful degradation**: Quality is maintained as much as possible
+- **Predictable output**: No surprises with black squares in your mosaic
+- **Better material utilization**: Tiles can be reused when necessary
+
 ## Tips for Efficient Usage
 
 ### Interface Organization

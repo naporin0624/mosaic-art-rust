@@ -1,8 +1,18 @@
-use iced::widget::{button, checkbox, column, container, progress_bar, row, scrollable, text, text_input};
-use iced::{Application, Command, Element, Length, Theme};
+use iced::widget::{button, checkbox, column, container, progress_bar, row, scrollable, text, text_input, pick_list};
+use iced::{Application, Command, Element, Length, Theme, Font};
+use iced::advanced::widget::text::Shaping;
 use std::path::PathBuf;
 use std::time::Instant;
 use tokio::sync::mpsc;
+
+// Internationalization imports
+use i18n_embed::{
+    fluent::{fluent_language_loader, FluentLanguageLoader},
+    DesktopLanguageRequester, LanguageLoader,
+};
+use unic_langid::LanguageIdentifier;
+use once_cell::sync::OnceCell;
+use rust_embed::RustEmbed;
 #[cfg(test)]
 use mosaic_rust::{
     MosaicGenerator as MosaicGeneratorTrait, MosaicGeneratorImpl, Tile, UsageTracker,
@@ -33,17 +43,71 @@ use rayon::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
 
+// Embed the localization assets
+#[derive(RustEmbed)]
+#[folder = "assets/i18n"]
+struct Localisations;
+
+// Fluent language loader singleton
+fn loader() -> &'static FluentLanguageLoader {
+    static LOADER: OnceCell<FluentLanguageLoader> = OnceCell::new();
+    LOADER.get_or_init(|| fluent_language_loader!())
+}
+
+// Language options for the UI
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UiLanguage {
+    English,
+    Japanese,
+}
+
+impl UiLanguage {
+    pub const ALL: [Self; 2] = [Self::English, Self::Japanese];
+    
+    pub fn langid(self) -> LanguageIdentifier {
+        match self {
+            Self::English => "en-US".parse().unwrap(),
+            Self::Japanese => "ja-JP".parse().unwrap(),
+        }
+    }
+    
+    pub fn label(self) -> String {
+        match self {
+            Self::English => loader().get("language-english"),
+            Self::Japanese => loader().get("language-japanese"),
+        }
+    }
+}
+
+impl std::fmt::Display for UiLanguage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.label())
+    }
+}
+
+// Translation helper function
+fn t(id: &str) -> String {
+    loader().get(id)
+}
+
+// Translation helper function with arguments
+fn t_with_args(id: &str, args: std::collections::HashMap<String, fluent_bundle::FluentValue>) -> String {
+    loader().get_args(id, args)
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
     // File selection
     TargetPathChanged(String),
     MaterialPathChanged(String),
     OutputPathChanged(String),
+    SimilarityDbPathChanged(String),
 
     // File dialogs
     OpenTargetFile,
     OpenMaterialFolder,
     SaveOutputFile,
+    SaveSimilarityDbFile,
     FileSelected(Option<PathBuf>),
 
     // Settings
@@ -51,6 +115,7 @@ pub enum Message {
     GridHeightChanged(String),
     TotalTilesChanged(String),
     AutoCalculateToggled(bool),
+    AutoCalculateMaxUsageToggled(bool),
     MaxMaterialsChanged(String),
     ColorAdjustmentChanged(String),
     OptimizationToggled(bool),
@@ -58,12 +123,14 @@ pub enum Message {
     MaxUsagePerImageChanged(String),
     AdjacencyPenaltyWeightChanged(String),
     OptimizationIterationsChanged(String),
+    RebuildSimilarityDbToggled(bool),
 
     // Actions
     CalculateGrid,
     GenerateMosaic,
     ToggleTheme,
     ToggleAdvancedSettings,
+    LanguageChanged(UiLanguage),
     
     // Processing
     MosaicGenerationCompleted(Result<String, String>),
@@ -84,6 +151,8 @@ pub struct MosaicSettings {
     pub max_usage_per_image: usize,
     pub adjacency_penalty_weight: f32,
     pub optimization_iterations: usize,
+    pub similarity_db_path: String,
+    pub rebuild_similarity_db: bool,
 }
 
 impl Default for MosaicSettings {
@@ -97,9 +166,50 @@ impl Default for MosaicSettings {
             color_adjustment: 0.3,
             enable_optimization: true,
             verbose_logging: false,
-            max_usage_per_image: 3,
+            max_usage_per_image: 0, // Set to 0 to trigger auto-calculation
             adjacency_penalty_weight: 0.3,
             optimization_iterations: 1000,
+            similarity_db_path: "similarity_db.json".to_string(),
+            rebuild_similarity_db: false,
+        }
+    }
+}
+
+/// Automatically calculate max_usage_per_image based on total_tiles / max_materials
+/// Returns the existing value if it's already set (non-zero), otherwise calculates it.
+fn auto_calculate_max_usage_per_image(settings: &MosaicSettings) -> usize {
+    auto_calculate_max_usage_per_image_with_force(settings, false)
+}
+
+fn auto_calculate_max_usage_per_image_with_force(settings: &MosaicSettings, force_recalculate: bool) -> usize {
+    #[cfg(test)]
+    println!("auto_calculate_max_usage_per_image: max_usage_per_image={}, total_tiles={:?}, max_materials={}, force={}", 
+             settings.max_usage_per_image, settings.total_tiles, settings.max_materials, force_recalculate);
+    
+    // If already set to non-zero value and not forcing recalculation, keep it
+    if settings.max_usage_per_image > 0 && !force_recalculate {
+        #[cfg(test)]
+        println!("auto_calculate_max_usage_per_image: keeping existing value {}", settings.max_usage_per_image);
+        return settings.max_usage_per_image;
+    }
+    
+    // Calculate based on total tiles and max materials
+    match settings.total_tiles {
+        Some(total_tiles) if total_tiles > 0 && settings.max_materials > 0 => {
+            // Calculate and round up to ensure all tiles can be used
+            let calculated = (total_tiles as f64 / settings.max_materials as f64).ceil() as usize;
+            let result = std::cmp::max(calculated, 1); // Ensure at least 1
+            
+            #[cfg(test)]
+            println!("auto_calculate_max_usage_per_image: calculated {} / {} = {}, result={}", 
+                     total_tiles, settings.max_materials, calculated, result);
+            
+            result
+        }
+        _ => {
+            #[cfg(test)]
+            println!("auto_calculate_max_usage_per_image: defaulting to 1");
+            1 // Default to 1 if no valid total_tiles or max_materials
         }
     }
 }
@@ -118,12 +228,17 @@ pub struct MosaicApp {
     target_path: String,
     material_path: String,
     output_path: String,
+    similarity_db_path: String,
     settings: MosaicSettings,
     theme: Theme,
     pending_selection: Option<FileSelectionType>,
     
     // UI state
     advanced_settings_expanded: bool,
+    
+    // Language and font state
+    current_language: UiLanguage,
+    japanese_font: Font,
 
     // Input field states
     grid_w_input: String,
@@ -134,6 +249,10 @@ pub struct MosaicApp {
     max_usage_per_image_input: String,
     adjacency_penalty_weight_input: String,
     optimization_iterations_input: String,
+    similarity_db_path_input: String,
+    
+    // Auto-calculation state
+    auto_calculate_max_usage: bool,
     
     // Processing state
     processing_state: ProcessingState,
@@ -149,6 +268,7 @@ enum FileSelectionType {
     Target,
     Material,
     Output,
+    SimilarityDb,
 }
 
 impl Application for MosaicApp {
@@ -158,15 +278,41 @@ impl Application for MosaicApp {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        let settings = MosaicSettings::default();
+        let mut settings = MosaicSettings::default();
+        
+        // Trigger auto-calculation for initial setup
+        if settings.max_usage_per_image == 0 {
+            settings.max_usage_per_image = auto_calculate_max_usage_per_image(&settings);
+        }
+        
+        // Determine initial language based on system locale
+        let requested = DesktopLanguageRequester::requested_languages();
+        let initial_language = if requested.first()
+            .map(|l| l.language == "ja")
+            .unwrap_or(false) {
+            UiLanguage::Japanese
+        } else {
+            UiLanguage::English
+        };
+        
+        // Initialize the language catalog
+        loader().load_languages(&Localisations, &[&initial_language.langid()])
+            .expect("Failed to load language catalog");
+        
+        // Create Japanese font (using Font family name)
+        let japanese_font = Font::with_name("Noto Sans JP");
+        
         (
             Self {
                 target_path: String::new(),
                 material_path: String::new(),
                 output_path: String::new(),
+                similarity_db_path: settings.similarity_db_path.clone(),
                 theme: Theme::Light,
                 pending_selection: None,
                 advanced_settings_expanded: false,
+                current_language: initial_language,
+                japanese_font,
                 grid_w_input: settings.grid_w.to_string(),
                 grid_h_input: settings.grid_h.to_string(),
                 total_tiles_input: settings
@@ -178,6 +324,8 @@ impl Application for MosaicApp {
                 max_usage_per_image_input: settings.max_usage_per_image.to_string(),
                 adjacency_penalty_weight_input: settings.adjacency_penalty_weight.to_string(),
                 optimization_iterations_input: settings.optimization_iterations.to_string(),
+                similarity_db_path_input: settings.similarity_db_path.clone(),
+                auto_calculate_max_usage: settings.max_usage_per_image == 0,
                 processing_state: ProcessingState::Idle,
                 log_messages: Vec::new(),
                 start_time: None,
@@ -189,7 +337,7 @@ impl Application for MosaicApp {
     }
 
     fn title(&self) -> String {
-        "Mosaic Art Generator".to_string()
+        t("app-title")
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
@@ -202,6 +350,11 @@ impl Application for MosaicApp {
             }
             Message::OutputPathChanged(path) => {
                 self.output_path = path;
+            }
+            Message::SimilarityDbPathChanged(path) => {
+                self.similarity_db_path = path.clone();
+                self.similarity_db_path_input = path.clone();
+                self.settings.similarity_db_path = path;
             }
             Message::OpenTargetFile => {
                 self.pending_selection = Some(FileSelectionType::Target);
@@ -241,6 +394,19 @@ impl Application for MosaicApp {
                     Message::FileSelected,
                 );
             }
+            Message::SaveSimilarityDbFile => {
+                self.pending_selection = Some(FileSelectionType::SimilarityDb);
+                return Command::perform(
+                    async {
+                        rfd::AsyncFileDialog::new()
+                            .add_filter("json", &["json"])
+                            .save_file()
+                            .await
+                            .map(|handle| handle.path().to_path_buf())
+                    },
+                    Message::FileSelected,
+                );
+            }
             Message::FileSelected(path) => {
                 if let (Some(path), Some(selection_type)) = (path, &self.pending_selection) {
                     match selection_type {
@@ -252,6 +418,11 @@ impl Application for MosaicApp {
                         }
                         FileSelectionType::Output => {
                             self.output_path = path.to_string_lossy().to_string();
+                        }
+                        FileSelectionType::SimilarityDb => {
+                            self.similarity_db_path = path.to_string_lossy().to_string();
+                            self.similarity_db_path_input = path.to_string_lossy().to_string();
+                            self.settings.similarity_db_path = path.to_string_lossy().to_string();
                         }
                     }
                 }
@@ -272,14 +443,59 @@ impl Application for MosaicApp {
             Message::TotalTilesChanged(value) => {
                 self.total_tiles_input = value.clone();
                 self.settings.total_tiles = value.parse::<u32>().ok();
+                
+                // Real-time grid calculation when auto-calculate is enabled
+                if self.settings.auto_calculate {
+                    if let Some(total_tiles) = self.settings.total_tiles {
+                        let aspect_ratio = 16.0 / 9.0;
+                        let w = ((total_tiles as f32 * aspect_ratio).sqrt()).round() as u32;
+                        let h = (total_tiles / w).max(1);
+                        
+                        self.settings.grid_w = w;
+                        self.settings.grid_h = h;
+                        self.grid_w_input = w.to_string();
+                        self.grid_h_input = h.to_string();
+                    }
+                }
+                
+                // Auto-calculate max usage per image if auto-calculation is enabled
+                if self.auto_calculate_max_usage {
+                    // Force recalculation since we're in auto-calculation mode
+                    self.settings.max_usage_per_image = auto_calculate_max_usage_per_image_with_force(&self.settings, true);
+                    self.max_usage_per_image_input = self.settings.max_usage_per_image.to_string();
+                }
             }
             Message::AutoCalculateToggled(enabled) => {
                 self.settings.auto_calculate = enabled;
+            }
+            Message::AutoCalculateMaxUsageToggled(enabled) => {
+                self.auto_calculate_max_usage = enabled;
             }
             Message::MaxMaterialsChanged(value) => {
                 self.max_materials_input = value.clone();
                 if let Ok(max) = value.parse::<usize>() {
                     self.settings.max_materials = max;
+                    
+                    // Auto-calculate max usage per image if auto-calculation is enabled
+                    if self.auto_calculate_max_usage {
+                        // Create a temporary settings struct with updated values to ensure calculation uses new materials count
+                        let temp_settings = MosaicSettings {
+                            max_materials: max,
+                            ..self.settings.clone()
+                        };
+                        // Force recalculation since we're in auto-calculation mode
+                        let new_usage = auto_calculate_max_usage_per_image_with_force(&temp_settings, true);
+                        self.settings.max_usage_per_image = new_usage;
+                        self.max_usage_per_image_input = new_usage.to_string();
+                        
+                        #[cfg(test)]
+                        println!("MaxMaterialsChanged: auto_calculate_max_usage={}, new_materials={}, new_usage={}", 
+                                self.auto_calculate_max_usage, max, new_usage);
+                    } else {
+                        #[cfg(test)]
+                        println!("MaxMaterialsChanged: auto_calculate_max_usage={}, skipping calculation", 
+                                self.auto_calculate_max_usage);
+                    }
                 }
             }
             Message::ColorAdjustmentChanged(value) => {
@@ -297,7 +513,18 @@ impl Application for MosaicApp {
             Message::MaxUsagePerImageChanged(value) => {
                 self.max_usage_per_image_input = value.clone();
                 if let Ok(max) = value.parse::<usize>() {
-                    self.settings.max_usage_per_image = max.max(1);
+                    if max == 0 {
+                        // Enable auto-calculation when set to 0
+                        self.auto_calculate_max_usage = true;
+                        // Force recalculation since user explicitly set to 0
+                        self.settings.max_usage_per_image = 0; // Set to 0 first
+                        self.settings.max_usage_per_image = auto_calculate_max_usage_per_image(&self.settings);
+                        self.max_usage_per_image_input = self.settings.max_usage_per_image.to_string();
+                    } else {
+                        // Disable auto-calculation when manually set
+                        self.auto_calculate_max_usage = false;
+                        self.settings.max_usage_per_image = max;
+                    }
                 }
             }
             Message::AdjacencyPenaltyWeightChanged(value) => {
@@ -311,6 +538,9 @@ impl Application for MosaicApp {
                 if let Ok(iterations) = value.parse::<usize>() {
                     self.settings.optimization_iterations = iterations.max(1);
                 }
+            }
+            Message::RebuildSimilarityDbToggled(enabled) => {
+                self.settings.rebuild_similarity_db = enabled;
             }
             Message::CalculateGrid => {
                 if let Some(total_tiles) = self.settings.total_tiles {
@@ -459,27 +689,62 @@ impl Application for MosaicApp {
             Message::ToggleAdvancedSettings => {
                 self.advanced_settings_expanded = !self.advanced_settings_expanded;
             }
+            Message::LanguageChanged(language) => {
+                if language != self.current_language {
+                    self.current_language = language;
+                    // Switch the language catalog
+                    loader().load_languages(&Localisations, &[&language.langid()])
+                        .expect("Failed to load language catalog");
+                }
+            }
         }
         Command::none()
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        let title = text("Mosaic Art Generator")
+        // Helper function to create text with appropriate font
+        let create_text = |content: String| {
+            text(content)
+                .font(if self.current_language == UiLanguage::Japanese {
+                    self.japanese_font
+                } else {
+                    Font::default()
+                })
+                .shaping(Shaping::Advanced)
+        };
+        
+        let title = create_text(t("app-title"))
             .size(36);
+
+        // Language selection section
+        let language_section = column![
+            create_text(t("language-label"))
+                .size(16),
+            pick_list(
+                &UiLanguage::ALL[..],
+                Some(self.current_language),
+                Message::LanguageChanged,
+            )
+            .placeholder(t("language-label"))
+            .padding(8)
+            .width(Length::Fixed(150.0))
+        ]
+        .spacing(8)
+        .padding(20);
 
         // File selection section
         let files_section = column![
-            text("File Selection")
+            create_text(t("file-selection-title"))
                 .size(24),
             column![
-                text("Target Image:")
+                create_text(t("target-image-label"))
                     .size(14),
                 row![
-                    text_input("Enter target image path", &self.target_path)
+                    text_input(&t("target-image-placeholder"), &self.target_path)
                         .on_input(Message::TargetPathChanged)
                         .padding(8)
                         .width(Length::Fill),
-                    button("Browse")
+                    button(create_text(t("target-image-browse")))
                         .on_press(Message::OpenTargetFile)
                         .padding([8, 16])
                 ]
@@ -487,14 +752,14 @@ impl Application for MosaicApp {
             ]
             .spacing(4),
             column![
-                text("Material Directory:")
+                create_text(t("material-directory-label"))
                     .size(14),
                 row![
-                    text_input("Enter material directory path", &self.material_path)
+                    text_input(&t("material-directory-placeholder"), &self.material_path)
                         .on_input(Message::MaterialPathChanged)
                         .padding(8)
                         .width(Length::Fill),
-                    button("Browse")
+                    button(create_text(t("material-directory-browse")))
                         .on_press(Message::OpenMaterialFolder)
                         .padding([8, 16])
                 ]
@@ -502,14 +767,14 @@ impl Application for MosaicApp {
             ]
             .spacing(4),
             column![
-                text("Output Path:")
+                create_text(t("output-path-label"))
                     .size(14),
                 row![
-                    text_input("Enter output path", &self.output_path)
+                    text_input(&t("output-path-placeholder"), &self.output_path)
                         .on_input(Message::OutputPathChanged)
                         .padding(8)
                         .width(Length::Fill),
-                    button("Browse")
+                    button(create_text(t("output-path-browse")))
                         .on_press(Message::SaveOutputFile)
                         .padding([8, 16])
                 ]
@@ -522,55 +787,87 @@ impl Application for MosaicApp {
 
         // Settings section
         let grid_section = column![
-            text("Grid Settings")
+            create_text(t("grid-settings-title"))
                 .size(24),
+            create_text(t("grid-settings-description"))
+                .size(14)
+                .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5))),
             checkbox(
-                "Auto-calculate grid from total tiles",
+                t("auto-calculate-label"),
                 self.settings.auto_calculate
             )
             .on_toggle(Message::AutoCalculateToggled)
             .spacing(8),
+            create_text(t("auto-calculate-description"))
+                .size(12)
+                .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5))),
             if self.settings.auto_calculate {
                 column![
-                    row![
-                        text("Total tiles:")
-                            .size(14),
-                        text_input("e.g., 1400", &self.total_tiles_input)
-                            .on_input(Message::TotalTilesChanged)
-                            .padding(8)
-                            .width(Length::Fixed(150.0))
+                    column![
+                        row![
+                            create_text(t("total-tiles-label"))
+                                .size(14),
+                            text_input(&t("total-tiles-placeholder"), &self.total_tiles_input)
+                                .on_input(Message::TotalTilesChanged)
+                                .padding(8)
+                                .width(Length::Fixed(150.0))
+                        ]
+                        .spacing(12)
+                        .align_items(iced::Alignment::Center),
+                        create_text(t("total-tiles-description"))
+                            .size(12)
+                            .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
                     ]
-                    .spacing(12)
-                    .align_items(iced::Alignment::Center),
-                    button("Calculate Grid")
+                    .spacing(4),
+                    button(create_text(t("calculate-grid-button")))
                         .on_press(Message::CalculateGrid)
                         .padding([8, 16])
                 ]
-                .spacing(8)
+                .spacing(12)
             } else {
                 column![]
             },
             row![
                 column![
-                    text("Grid Width:")
+                    create_text(t("grid-width-label"))
                         .size(14),
-                    text_input("50", &self.grid_w_input)
+                    text_input(&t("grid-width-placeholder"), &self.grid_w_input)
                         .on_input(Message::GridWidthChanged)
                         .padding(8)
-                        .width(Length::Fixed(100.0))
+                        .width(Length::Fixed(100.0)),
+                    create_text(t("grid-width-description"))
+                        .size(12)
+                        .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
                 ]
                 .spacing(4),
                 column![
-                    text("Grid Height:")
+                    create_text(t("grid-height-label"))
                         .size(14),
-                    text_input("28", &self.grid_h_input)
+                    text_input(&t("grid-height-placeholder"), &self.grid_h_input)
                         .on_input(Message::GridHeightChanged)
                         .padding(8)
-                        .width(Length::Fixed(100.0))
+                        .width(Length::Fixed(100.0)),
+                    create_text(t("grid-height-description"))
+                        .size(12)
+                        .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
                 ]
                 .spacing(4)
             ]
-            .spacing(20)
+            .spacing(20),
+            
+            // Max materials section (moved from advanced settings)
+            column![
+                create_text(t("max-materials-label"))
+                    .size(14),
+                text_input(&t("max-materials-placeholder"), &self.max_materials_input)
+                    .on_input(Message::MaxMaterialsChanged)
+                    .padding(8)
+                    .width(Length::Fixed(150.0)),
+                create_text(t("max-materials-description"))
+                    .size(12)
+                    .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
+            ]
+            .spacing(4)
         ]
         .spacing(12)
         .padding(20);
@@ -580,7 +877,7 @@ impl Application for MosaicApp {
         let advanced_header = button(
             row![
                 text(arrow).size(18),
-                text("Advanced Settings").size(24)
+                create_text(t("advanced-settings-title")).size(24)
             ]
             .spacing(8)
             .align_items(iced::Alignment::Center)
@@ -595,85 +892,161 @@ impl Application for MosaicApp {
                 advanced_header,
                 container(
                     column![
-                        text("Configuration")
+                        create_text(t("configuration-title"))
                             .size(16)
                             .style(iced::theme::Text::Color(iced::Color::from_rgb(0.6, 0.6, 0.6))),
-                        row![
-                            text("Max materials:")
-                                .size(14)
-                                .width(Length::Fixed(250.0)),
-                            text_input("500", &self.max_materials_input)
-                                .on_input(Message::MaxMaterialsChanged)
-                                .padding(8)
-                                .width(Length::Fixed(100.0))
+                        create_text(t("configuration-description"))
+                            .size(12)
+                            .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5))),
+                        column![
+                            row![
+                                create_text(t("color-adjustment-label"))
+                                    .size(14)
+                                    .width(Length::Fixed(250.0)),
+                                text_input(&t("color-adjustment-placeholder"), &self.color_adjustment_input)
+                                    .on_input(Message::ColorAdjustmentChanged)
+                                    .padding(8)
+                                    .width(Length::Fixed(100.0))
+                            ]
+                            .spacing(12)
+                            .align_items(iced::Alignment::Center),
+                            create_text(t("color-adjustment-description"))
+                                .size(12)
+                                .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
                         ]
-                        .spacing(12)
-                        .align_items(iced::Alignment::Center),
-                        row![
-                            text("Color adjustment (0.0-1.0):")
-                                .size(14)
-                                .width(Length::Fixed(250.0)),
-                            text_input("0.3", &self.color_adjustment_input)
-                                .on_input(Message::ColorAdjustmentChanged)
-                                .padding(8)
-                                .width(Length::Fixed(100.0))
+                        .spacing(4),
+                        column![
+                            row![
+                                create_text(t("max-usage-per-image-label"))
+                                    .size(14)
+                                    .width(Length::Fixed(250.0)),
+                                text_input(&t("max-usage-per-image-placeholder"), &self.max_usage_per_image_input)
+                                    .on_input(Message::MaxUsagePerImageChanged)
+                                    .padding(8)
+                                    .width(Length::Fixed(100.0))
+                            ]
+                            .spacing(12)
+                            .align_items(iced::Alignment::Center),
+                            create_text(t("max-usage-per-image-description"))
+                                .size(12)
+                                .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
                         ]
-                        .spacing(12)
-                        .align_items(iced::Alignment::Center),
-                        row![
-                            text("Max usage per image:")
-                                .size(14)
-                                .width(Length::Fixed(250.0)),
-                            text_input("3", &self.max_usage_per_image_input)
-                                .on_input(Message::MaxUsagePerImageChanged)
-                                .padding(8)
-                                .width(Length::Fixed(100.0))
+                        .spacing(4),
+                        column![
+                            row![
+                                create_text(t("auto-calculate-max-usage-label"))
+                                    .size(14)
+                                    .width(Length::Fixed(250.0)),
+                                checkbox("", self.auto_calculate_max_usage)
+                                    .on_toggle(Message::AutoCalculateMaxUsageToggled)
+                                    .size(16)
+                            ]
+                            .spacing(12)
+                            .align_items(iced::Alignment::Center),
+                            create_text(t("auto-calculate-max-usage-description"))
+                                .size(12)
+                                .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
                         ]
-                        .spacing(12)
-                        .align_items(iced::Alignment::Center),
-                        row![
-                            text("Adjacency penalty weight (0.0-1.0):")
-                                .size(14)
-                                .width(Length::Fixed(250.0)),
-                            text_input("0.3", &self.adjacency_penalty_weight_input)
-                                .on_input(Message::AdjacencyPenaltyWeightChanged)
-                                .padding(8)
-                                .width(Length::Fixed(100.0))
+                        .spacing(4),
+                        column![
+                            row![
+                                create_text(t("adjacency-penalty-weight-label"))
+                                    .size(14)
+                                    .width(Length::Fixed(250.0)),
+                                text_input(&t("adjacency-penalty-weight-placeholder"), &self.adjacency_penalty_weight_input)
+                                    .on_input(Message::AdjacencyPenaltyWeightChanged)
+                                    .padding(8)
+                                    .width(Length::Fixed(100.0))
+                            ]
+                            .spacing(12)
+                            .align_items(iced::Alignment::Center),
+                            create_text(t("adjacency-penalty-weight-description"))
+                                .size(12)
+                                .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
                         ]
-                        .spacing(12)
-                        .align_items(iced::Alignment::Center),
+                        .spacing(4),
+                        column![
+                            row![
+                                create_text(t("similarity-db-path-label"))
+                                    .size(14)
+                                    .width(Length::Fixed(250.0)),
+                                text_input(&t("similarity-db-path-placeholder"), &self.similarity_db_path_input)
+                                    .on_input(Message::SimilarityDbPathChanged)
+                                    .padding(8)
+                                    .width(Length::Fixed(150.0)),
+                                button(create_text(t("target-image-browse")))
+                                    .on_press(Message::SaveSimilarityDbFile)
+                                    .padding([4, 8])
+                            ]
+                            .spacing(8)
+                            .align_items(iced::Alignment::Center),
+                            create_text(t("similarity-db-path-description"))
+                                .size(12)
+                                .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
+                        ]
+                        .spacing(4),
+                        column![
+                            checkbox(t("rebuild-similarity-db-label"), self.settings.rebuild_similarity_db)
+                                .on_toggle(Message::RebuildSimilarityDbToggled)
+                                .spacing(8),
+                            create_text(t("rebuild-similarity-db-description"))
+                                .size(12)
+                                .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
+                        ]
+                        .spacing(4),
                         
-                        text("Optimization")
+                        create_text(t("optimization-title"))
                             .size(16)
                             .style(iced::theme::Text::Color(iced::Color::from_rgb(0.6, 0.6, 0.6))),
-                        checkbox("Enable optimization", self.settings.enable_optimization)
+                        create_text(t("optimization-description"))
+                            .size(12)
+                            .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5))),
+                        checkbox(t("enable-optimization-label"), self.settings.enable_optimization)
                             .on_toggle(Message::OptimizationToggled)
                             .spacing(8),
+                        create_text(t("enable-optimization-description"))
+                            .size(12)
+                            .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5))),
                         if self.settings.enable_optimization {
                             column![
-                                row![
-                                    text("Optimization iterations:")
-                                        .size(14)
-                                        .width(Length::Fixed(250.0)),
-                                    text_input("1000", &self.optimization_iterations_input)
-                                        .on_input(Message::OptimizationIterationsChanged)
-                                        .padding(8)
-                                        .width(Length::Fixed(100.0))
+                                column![
+                                    row![
+                                        create_text(t("optimization-iterations-label"))
+                                            .size(14)
+                                            .width(Length::Fixed(250.0)),
+                                        text_input(&t("optimization-iterations-placeholder"), &self.optimization_iterations_input)
+                                            .on_input(Message::OptimizationIterationsChanged)
+                                            .padding(8)
+                                            .width(Length::Fixed(100.0))
+                                    ]
+                                    .spacing(12)
+                                    .align_items(iced::Alignment::Center),
+                                    create_text(t("optimization-iterations-description"))
+                                        .size(12)
+                                        .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
                                 ]
-                                .spacing(12)
-                                .align_items(iced::Alignment::Center)
+                                .spacing(4)
                             ]
                             .spacing(8)
                         } else {
                             column![]
                         },
                         
-                        text("Debugging")
+                        create_text(t("debugging-title"))
                             .size(16)
                             .style(iced::theme::Text::Color(iced::Color::from_rgb(0.6, 0.6, 0.6))),
-                        checkbox("Verbose logging (debug output)", self.settings.verbose_logging)
-                            .on_toggle(Message::VerboseLoggingToggled)
-                            .spacing(8)
+                        create_text(t("debugging-description"))
+                            .size(12)
+                            .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5))),
+                        column![
+                            checkbox(t("verbose-logging-label"), self.settings.verbose_logging)
+                                .on_toggle(Message::VerboseLoggingToggled)
+                                .spacing(8),
+                            create_text(t("verbose-logging-description"))
+                                .size(12)
+                                .style(iced::theme::Text::Color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
+                        ]
+                        .spacing(4)
                     ]
                     .spacing(12)
                 )
@@ -688,27 +1061,27 @@ impl Application for MosaicApp {
         let status_section = match &self.processing_state {
             ProcessingState::Idle => column![],
             ProcessingState::Loading => column![
-                text("Loading...")
+                create_text(t("progress-initializing"))
                     .size(18),
                 progress_bar(0.0..=1.0, 0.0)
                     .height(Length::Fixed(8.0))
             ]
             .spacing(8),
             ProcessingState::Processing { progress, step } => column![
-                text(step)
+                create_text(step.clone())
                     .size(16),
                 progress_bar(0.0..=1.0, *progress)
                     .height(Length::Fixed(12.0)),
-                text(format!("{:.1}%", progress * 100.0))
+                create_text(format!("{:.1}%", progress * 100.0))
                     .size(14)
             ]
             .spacing(8),
             ProcessingState::Completed => column![
-                text("✅ Completed")
+                create_text(t("status-completed"))
                     .size(18)
             ],
             ProcessingState::Error(error) => column![
-                text(format!("❌ Error: {}", error))
+                create_text(format!("❌ {}: {}", t("error-processing"), error))
                     .size(16)
             ],
         }
@@ -716,24 +1089,24 @@ impl Application for MosaicApp {
 
         // Generate button with state-dependent text
         let generate_button_text = match &self.processing_state {
-            ProcessingState::Processing { .. } => "Processing...",
-            _ => "Generate Mosaic",
+            ProcessingState::Processing { .. } => t("generate-button-processing"),
+            _ => t("generate-button"),
         };
         
         let is_processing = matches!(self.processing_state, ProcessingState::Processing { .. });
         
         let generate_button = if is_processing {
-            button(generate_button_text)
+            button(create_text(generate_button_text))
                 .padding([12, 24])
         } else {
-            button(generate_button_text)
+            button(create_text(generate_button_text))
                 .on_press(Message::GenerateMosaic)
                 .padding([12, 24])
         };
 
         let controls = row![
             generate_button,
-            button("Toggle Theme")
+            button(create_text(t("toggle-theme-button")))
                 .on_press(Message::ToggleTheme)
                 .padding([12, 24])
         ]
@@ -751,7 +1124,7 @@ impl Application for MosaicApp {
             .spacing(2);
             
             column![
-                text("Generation Log")
+                create_text(t("generation-log-title"))
                     .size(24),
                 container(
                     scrollable(log_content)
@@ -769,6 +1142,8 @@ impl Application for MosaicApp {
             container(title)
                 .padding([0, 0, 20, 0])
                 .center_x()
+                .width(Length::Fill),
+            container(language_section)
                 .width(Length::Fill),
             container(files_section)
                 .width(Length::Fill),
@@ -1224,7 +1599,7 @@ fn generate_mosaic_internal(
     send_progress(0.4, format!("✅ Loaded {} tiles", tiles.len()));
     
     // Create similarity database
-    let similarity_db_path = PathBuf::from("similarity_db.json");
+    let similarity_db_path = PathBuf::from(&settings.similarity_db_path);
     debug_log(&format!("Similarity database path: {}", similarity_db_path.display()));
     let mut similarity_db = if similarity_db_path.exists() {
         debug_log("Loading existing similarity database");
@@ -1708,6 +2083,8 @@ mod tests {
             max_usage_per_image: 5,
             adjacency_penalty_weight: 0.2,
             optimization_iterations: 500,
+            similarity_db_path: "similarity_db.json".to_string(),
+            rebuild_similarity_db: false,
         };
         
         assert_eq!(settings.grid_w, 10);
@@ -1721,6 +2098,7 @@ mod tests {
         assert_eq!(settings.max_usage_per_image, 5);
         assert_eq!(settings.adjacency_penalty_weight, 0.2);
         assert_eq!(settings.optimization_iterations, 500);
+        assert_eq!(settings.similarity_db_path, "similarity_db.json"); // Default value
     }
 
     #[test]
@@ -1804,6 +2182,8 @@ mod tests {
             max_usage_per_image: 3,
             adjacency_penalty_weight: 0.3,
             optimization_iterations: 1000,
+            similarity_db_path: "similarity_db.json".to_string(),
+            rebuild_similarity_db: false,
         };
         
         // Test settings with verbose logging disabled
@@ -1851,9 +2231,10 @@ mod tests {
     #[test]
     fn test_mosaic_settings_default_new_fields() {
         let settings = MosaicSettings::default();
-        assert_eq!(settings.max_usage_per_image, 3);
+        assert_eq!(settings.max_usage_per_image, 0); // 0 triggers auto-calculation
         assert_eq!(settings.adjacency_penalty_weight, 0.3);
         assert_eq!(settings.optimization_iterations, 1000);
+        assert_eq!(settings.similarity_db_path, "similarity_db.json");
     }
     
     #[test]
@@ -1892,9 +2273,12 @@ mod tests {
         assert_eq!(app.settings.max_usage_per_image, 5);
         assert_eq!(app.max_usage_per_image_input, "5");
         
-        // Test minimum constraint (should be at least 1)
+        // Test auto-calculation when set to 0
         app.update(Message::MaxUsagePerImageChanged("0".to_string()));
-        assert_eq!(app.settings.max_usage_per_image, 1);
+        // Should enable auto-calculation and compute based on default values: 1400/500 = 3
+        let expected_auto_calculated = (1400.0_f32 / 500.0).ceil() as usize;
+        assert_eq!(app.settings.max_usage_per_image, expected_auto_calculated);
+        assert!(app.auto_calculate_max_usage); // Should enable auto-calculation
         
         // Test invalid input (should not change the value)
         let prev_value = app.settings.max_usage_per_image;
@@ -1949,6 +2333,7 @@ mod tests {
         assert_eq!(app.max_usage_per_image_input, "3");
         assert_eq!(app.adjacency_penalty_weight_input, "0.3");
         assert_eq!(app.optimization_iterations_input, "1000");
+        assert_eq!(app.similarity_db_path_input, "similarity_db.json");
     }
 
     #[test]
@@ -2129,6 +2514,53 @@ mod tests {
     }
     
     #[test]
+    fn test_similarity_db_path_message() {
+        let message = Message::SimilarityDbPathChanged("custom_similarity.json".to_string());
+        match message {
+            Message::SimilarityDbPathChanged(path) => assert_eq!(path, "custom_similarity.json"),
+            _ => panic!("Expected SimilarityDbPathChanged message"),
+        }
+    }
+    
+    #[test]
+    fn test_save_similarity_db_file_message() {
+        let message = Message::SaveSimilarityDbFile;
+        match message {
+            Message::SaveSimilarityDbFile => (),
+            _ => panic!("Expected SaveSimilarityDbFile message"),
+        }
+    }
+    
+    #[test]
+    fn test_mosaic_app_update_similarity_db_path() {
+        let mut app = MosaicApp::new(()).0;
+        
+        // Test updating similarity database path
+        app.update(Message::SimilarityDbPathChanged("custom_db.json".to_string()));
+        assert_eq!(app.similarity_db_path, "custom_db.json");
+        assert_eq!(app.similarity_db_path_input, "custom_db.json");
+        assert_eq!(app.settings.similarity_db_path, "custom_db.json");
+    }
+    
+    #[test]
+    fn test_file_selection_type_similarity_db() {
+        // Test that the new enum variant exists
+        let selection_type = FileSelectionType::SimilarityDb;
+        match selection_type {
+            FileSelectionType::SimilarityDb => (),
+            _ => panic!("Expected SimilarityDb selection type"),
+        }
+    }
+    
+    #[test]
+    fn test_mosaic_app_initial_similarity_db_path() {
+        let (app, _) = MosaicApp::new(());
+        assert_eq!(app.similarity_db_path, "similarity_db.json");
+        assert_eq!(app.similarity_db_path_input, "similarity_db.json");
+        assert_eq!(app.settings.similarity_db_path, "similarity_db.json");
+    }
+
+    #[test]
     fn test_comprehensive_fallback_scenario() {
         use std::path::PathBuf;
         
@@ -2214,6 +2646,237 @@ mod tests {
     }
     
     #[test]
+    fn test_auto_calculate_max_usage_per_image_when_zero() {
+        let mut settings = MosaicSettings::default();
+        settings.max_usage_per_image = 0; // Set to 0 to trigger auto-calculation
+        settings.total_tiles = Some(1000);
+        settings.max_materials = 250;
+        
+        let calculated_usage = auto_calculate_max_usage_per_image(&settings);
+        assert_eq!(calculated_usage, 4); // 1000 / 250 = 4
+    }
+    
+    #[test]
+    fn test_auto_calculate_max_usage_per_image_when_already_set() {
+        let mut settings = MosaicSettings::default();
+        settings.max_usage_per_image = 5; // Already set to non-zero
+        settings.total_tiles = Some(1000);
+        settings.max_materials = 250;
+        
+        let calculated_usage = auto_calculate_max_usage_per_image(&settings);
+        assert_eq!(calculated_usage, 5); // Should keep existing value
+    }
+    
+    #[test]
+    fn test_auto_calculate_max_usage_per_image_handles_division_by_zero() {
+        let mut settings = MosaicSettings::default();
+        settings.max_usage_per_image = 0;
+        settings.total_tiles = Some(1000);
+        settings.max_materials = 0; // Division by zero case
+        
+        let calculated_usage = auto_calculate_max_usage_per_image(&settings);
+        assert_eq!(calculated_usage, 1); // Should default to 1 to avoid division by zero
+    }
+    
+    #[test]
+    fn test_auto_calculate_max_usage_per_image_handles_no_total_tiles() {
+        let mut settings = MosaicSettings::default();
+        settings.max_usage_per_image = 0;
+        settings.total_tiles = None; // No total tiles set
+        settings.max_materials = 250;
+        
+        let calculated_usage = auto_calculate_max_usage_per_image(&settings);
+        assert_eq!(calculated_usage, 1); // Should default to 1 when no total tiles
+    }
+    
+    #[test]
+    fn test_auto_calculate_max_usage_per_image_rounds_up() {
+        let mut settings = MosaicSettings::default();
+        settings.max_usage_per_image = 0;
+        settings.total_tiles = Some(1000);
+        settings.max_materials = 333; // 1000 / 333 = 3.003...
+        
+        let calculated_usage = auto_calculate_max_usage_per_image(&settings);
+        assert_eq!(calculated_usage, 4); // Should round up to ensure all tiles can be used
+    }
+    
+    #[test]
+    fn test_real_time_grid_calculation_updates_ui() {
+        let mut app = MosaicApp::new(()).0;
+        app.settings.auto_calculate = true;
+        app.settings.total_tiles = Some(1400);
+        
+        // Initial state
+        assert_eq!(app.grid_w_input, "50");
+        assert_eq!(app.grid_h_input, "28");
+        
+        // Change total tiles - should trigger real-time grid calculation
+        let _ = app.update(Message::TotalTilesChanged("2000".to_string()));
+        
+        // Grid inputs should be updated in real-time
+        let expected_w = ((2000.0_f32 * 16.0 / 9.0).sqrt()).round() as u32;
+        let expected_h = (2000 / expected_w).max(1);
+        
+        assert_eq!(app.grid_w_input, expected_w.to_string());
+        assert_eq!(app.grid_h_input, expected_h.to_string());
+        assert_eq!(app.settings.grid_w, expected_w);
+        assert_eq!(app.settings.grid_h, expected_h);
+    }
+    
+    #[test]
+    fn test_real_time_max_usage_calculation_updates_ui() {
+        let mut app = MosaicApp::new(()).0;
+        app.settings.max_usage_per_image = 0; // Enable auto-calculation
+        app.settings.total_tiles = Some(1000);
+        app.settings.max_materials = 200;
+        app.auto_calculate_max_usage = true; // Enable auto-calculation flag
+        
+        // Manually trigger auto-calculation for initial state
+        app.settings.max_usage_per_image = auto_calculate_max_usage_per_image(&app.settings);
+        app.max_usage_per_image_input = app.settings.max_usage_per_image.to_string();
+        
+        // Initial state should have auto-calculated value
+        let initial_expected = (1000.0_f32 / 200.0).ceil() as usize;
+        assert_eq!(app.settings.max_usage_per_image, initial_expected);
+        assert_eq!(app.max_usage_per_image_input, initial_expected.to_string());
+        
+        // Change max materials - should trigger real-time calculation
+        let _ = app.update(Message::MaxMaterialsChanged("250".to_string()));
+        
+        // Max usage should be updated in real-time
+        let expected_usage = (1000.0_f32 / 250.0).ceil() as usize;
+        
+        assert_eq!(app.settings.max_usage_per_image, expected_usage);
+        assert_eq!(app.max_usage_per_image_input, expected_usage.to_string());
+    }
+    
+    #[test]
+    fn test_real_time_max_usage_respects_manual_setting() {
+        let mut app = MosaicApp::new(()).0;
+        app.settings.max_usage_per_image = 0; // Start with auto-calculation
+        app.settings.total_tiles = Some(1000);
+        app.settings.max_materials = 200;
+        
+        // Manually set max usage per image to non-zero
+        let _ = app.update(Message::MaxUsagePerImageChanged("7".to_string()));
+        assert_eq!(app.settings.max_usage_per_image, 7);
+        
+        // Change max materials - should NOT trigger auto-calculation
+        let _ = app.update(Message::MaxMaterialsChanged("300".to_string()));
+        
+        // Max usage should remain manual value
+        assert_eq!(app.settings.max_usage_per_image, 7);
+        assert_eq!(app.max_usage_per_image_input, "7");
+    }
+    
+    #[test]
+    fn test_real_time_calculation_on_total_tiles_change() {
+        let mut app = MosaicApp::new(()).0;
+        app.settings.max_usage_per_image = 0; // Enable auto-calculation
+        app.auto_calculate_max_usage = true; // Enable real-time auto-calculation
+        app.settings.total_tiles = Some(800);
+        app.settings.max_materials = 200;
+        
+        // Change total tiles - should trigger both grid and max usage calculation
+        let _ = app.update(Message::TotalTilesChanged("1200".to_string()));
+        
+        // Grid calculation
+        let expected_w = ((1200.0_f32 * 16.0 / 9.0).sqrt()).round() as u32;
+        let expected_h = (1200 / expected_w).max(1);
+        assert_eq!(app.settings.grid_w, expected_w);
+        assert_eq!(app.settings.grid_h, expected_h);
+        
+        // Max usage calculation
+        let expected_usage = (1200.0_f32 / 200.0).ceil() as usize;
+        assert_eq!(app.settings.max_usage_per_image, expected_usage);
+        assert_eq!(app.max_usage_per_image_input, expected_usage.to_string());
+    }
+    
+    #[test]
+    fn test_disable_auto_calculate_prevents_real_time_grid_updates() {
+        let mut app = MosaicApp::new(()).0;
+        app.settings.auto_calculate = false; // Disable auto-calculation
+        app.settings.grid_w = 50;
+        app.settings.grid_h = 28;
+        app.grid_w_input = "50".to_string();
+        app.grid_h_input = "28".to_string();
+        
+        // Change total tiles - should NOT trigger grid calculation
+        let _ = app.update(Message::TotalTilesChanged("2000".to_string()));
+        
+        // Grid should remain unchanged
+        assert_eq!(app.settings.grid_w, 50);
+        assert_eq!(app.settings.grid_h, 28);
+        assert_eq!(app.grid_w_input, "50");
+        assert_eq!(app.grid_h_input, "28");
+    }
+    
+    #[test]
+    fn test_step_by_step_max_usage_calculation() {
+        let mut app = MosaicApp::new(()).0;
+        
+        // Start with known state
+        app.settings.total_tiles = Some(1000);
+        app.settings.max_materials = 200;
+        app.settings.max_usage_per_image = 0; // Start with 0 to enable auto-calculation
+        app.auto_calculate_max_usage = true;
+        
+        // Step 1: Manual calculation to verify expected result
+        let expected_initial = auto_calculate_max_usage_per_image(&app.settings);
+        assert_eq!(expected_initial, 5); // 1000 / 200 = 5
+        
+        // Step 2: Apply the auto-calculation manually
+        app.settings.max_usage_per_image = expected_initial;
+        app.max_usage_per_image_input = expected_initial.to_string();
+        
+        // Step 3: Change max materials and check if update triggers
+        let _ = app.update(Message::MaxMaterialsChanged("250".to_string()));
+        
+        // Verify materials setting was updated
+        assert_eq!(app.settings.max_materials, 250);
+        
+        // Verify auto-calculation flag is still enabled
+        assert!(app.auto_calculate_max_usage);
+        
+        // Calculate expected result after change
+        let expected_after_change = auto_calculate_max_usage_per_image(&app.settings);
+        assert_eq!(expected_after_change, 4); // 1000 / 250 = 4
+        
+        // Verify the update occurred
+        assert_eq!(app.settings.max_usage_per_image, expected_after_change);
+        assert_eq!(app.max_usage_per_image_input, expected_after_change.to_string());
+    }
+    
+    #[test]
+    fn test_max_usage_calculation_with_different_material_counts() {
+        let mut app = MosaicApp::new(()).0;
+        app.settings.total_tiles = Some(1200);
+        app.settings.max_materials = 100;
+        app.auto_calculate_max_usage = true;
+        
+        // Initial calculation: 1200 / 100 = 12
+        app.settings.max_usage_per_image = 0; // Set to 0 to enable auto-calculation
+        app.settings.max_usage_per_image = auto_calculate_max_usage_per_image(&app.settings);
+        app.max_usage_per_image_input = app.settings.max_usage_per_image.to_string();
+        assert_eq!(app.settings.max_usage_per_image, 12);
+        
+        // Test various material counts
+        let test_cases = vec![
+            (300, 4),  // 1200 / 300 = 4
+            (400, 3),  // 1200 / 400 = 3
+            (600, 2),  // 1200 / 600 = 2
+        ];
+        
+        for (materials, expected) in test_cases {
+            let _ = app.update(Message::MaxMaterialsChanged(materials.to_string()));
+            assert_eq!(app.settings.max_materials, materials);
+            assert_eq!(app.settings.max_usage_per_image, expected, 
+                      "Failed for materials={}, expected={}", materials, expected);
+            assert_eq!(app.max_usage_per_image_input, expected.to_string());
+        }
+    }
+
+    #[test]
     fn test_usage_tracker_reset_in_fallback() {
         use std::path::PathBuf;
         
@@ -2246,5 +2909,40 @@ mod tests {
         // Second placement should succeed through fallback (usage tracker reset)
         let result2 = generator.find_best_tile_for_position(&target_lab, position2);
         assert!(result2.is_some(), "Second placement should succeed with fallback");
+    }
+
+    #[test]
+    fn test_auto_calculate_max_usage_switch_ui() {
+        let mut app = MosaicApp::new(()).0;
+        
+        // Initially auto-calculate should be enabled
+        assert!(app.auto_calculate_max_usage);
+        
+        // Toggle auto-calculate off
+        let _ = app.update(Message::AutoCalculateMaxUsageToggled(false));
+        assert!(!app.auto_calculate_max_usage);
+        
+        // When auto-calculate is off, changing materials should not affect max_usage
+        let initial_usage = app.settings.max_usage_per_image;
+        let _ = app.update(Message::MaxMaterialsChanged("300".to_string()));
+        assert_eq!(app.settings.max_usage_per_image, initial_usage);
+        
+        // Toggle auto-calculate back on
+        let _ = app.update(Message::AutoCalculateMaxUsageToggled(true));
+        assert!(app.auto_calculate_max_usage);
+        
+        // Now changing materials should trigger auto-calculation
+        let _ = app.update(Message::MaxMaterialsChanged("400".to_string()));
+        let expected = (app.settings.total_tiles.unwrap() as f32 / 400.0).ceil() as usize;
+        assert_eq!(app.settings.max_usage_per_image, expected);
+    }
+
+    #[test]
+    fn test_auto_calculate_max_usage_message() {
+        let message = Message::AutoCalculateMaxUsageToggled(true);
+        match message {
+            Message::AutoCalculateMaxUsageToggled(val) => assert_eq!(val, true),
+            _ => panic!("Expected AutoCalculateMaxUsageToggled message"),
+        }
     }
 }

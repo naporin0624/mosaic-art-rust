@@ -1,0 +1,16 @@
+# i18n configuration file for mosaic-rust
+
+# The language identifier of the language used in the
+# source code for gettext system, and the primary
+# fallback language (for which all strings must be present).
+fallback_language = "en-US"
+
+# The languages that the software will be translated into.
+target_languages = ["en-US", "ja-JP"]
+
+[fluent]
+# The path to the assets directory, relative to the `i18n.toml` file,
+# where the translations will be stored.
+assets_dir = "assets"
+# The gettext domain
+domain = "main"

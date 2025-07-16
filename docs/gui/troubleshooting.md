@@ -280,6 +280,40 @@ set RUST_LOG=debug
 ./target/release/mosaic-gui.exe
 ```
 
+#### Understanding Fallback Logging (Added 2025-01-11)
+
+The GUI includes a comprehensive fallback system that ensures no grid cells remain empty. When **Verbose logging** is enabled, you can monitor this system's activity:
+
+**Normal Operation**:
+- No special messages appear when tiles are placed normally
+- Standard progress updates show percentage completion
+
+**Fallback Activation**:
+- "⚠️ Using fallback tile selection with reset usage tracker..."
+  - Indicates usage limits have been reached
+  - System resets usage tracker to allow tile reuse
+  - Maintains adjacency constraints for quality
+
+**Final Fallback**:
+- "⚠️ Using final fallback - best color match without adjacency constraints..."
+  - Rare message indicating all constraints prevented placement
+  - System ignores adjacency to guarantee tile placement
+  - Ensures no empty cells in final mosaic
+
+**Interpreting Fallback Messages**:
+- **Few fallback messages** (< 1% of tiles): Normal operation
+- **Many fallback messages** (> 10% of tiles): Consider adjusting settings:
+  - Increase "Max usage per image" value
+  - Reduce "Adjacency penalty weight"
+  - Add more material images
+- **Frequent final fallback**: Indicates constraint conflicts or insufficient materials
+
+**Troubleshooting with Fallback Logs**:
+1. Enable verbose logging in Advanced Settings
+2. Monitor generation log for fallback messages
+3. Adjust settings based on fallback frequency
+4. Use fallback patterns to optimize material collection
+
 #### Collect Debug Information
 
 When reporting issues, include:
