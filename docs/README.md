@@ -5,6 +5,7 @@ This directory contains comprehensive documentation for the Mosaic Art Generator
 ## Documentation Structure
 
 ### API Documentation (`/api/`)
+
 Detailed technical documentation for developers who want to understand or extend the codebase.
 
 - **[Core API Reference](api/core.md)** - Core traits, structs, and fundamental types
@@ -13,14 +14,16 @@ Detailed technical documentation for developers who want to understand or extend
 - **[Performance Guide](api/performance.md)** - Performance characteristics and optimization guidelines
 
 ### CLI Documentation (`/cli/`)
+
 User-facing documentation for command-line interface usage.
 
 - **[CLI Reference](cli/reference.md)** - Complete command-line interface documentation
-- **[Usage Examples](cli/examples.md)** - Practical usage examples and tutorials  
+- **[Usage Examples](cli/examples.md)** - Practical usage examples and tutorials
 - **[Parameter Guide](cli/parameters.md)** - Detailed parameter explanations
 - **[Performance Tuning](cli/performance.md)** - Performance optimization guidelines
 
 ### GUI Documentation (`/gui/`)
+
 Comprehensive documentation for the graphical user interface application.
 
 - **[GUI Overview](gui/index.md)** - Overview of the GUI application and features
@@ -34,7 +37,9 @@ Comprehensive documentation for the graphical user interface application.
 ## Quick Start
 
 ### CLI Usage
+
 For users who want to quickly generate mosaic art:
+
 ```bash
 # Basic usage
 cargo run --release -- --target photo.jpg --material-src ./materials --output mosaic.jpg
@@ -44,7 +49,9 @@ cargo run --release -- --target photo.jpg --material-src ./materials --output mo
 ```
 
 ### GUI Usage
+
 For users who prefer a graphical interface:
+
 ```bash
 # Build and run GUI application
 cargo build --bin mosaic-gui --release
@@ -52,6 +59,7 @@ cargo build --bin mosaic-gui --release
 ```
 
 The GUI provides an intuitive interface with:
+
 - Native file dialogs for easy file selection
 - Auto-calculated grid dimensions
 - Real-time progress tracking
@@ -59,6 +67,7 @@ The GUI provides an intuitive interface with:
 - **Robust fallback system** (Added 2025-01-11) ensuring no empty cells in mosaics
 
 For developers who want to understand the API:
+
 - Start with [Core API Reference](api/core.md)
 - Review [Module API Reference](api/modules.md) for specific functionality
 - Check [Error Handling](api/error-handling.md) for robust error management
@@ -79,6 +88,7 @@ The Mosaic Art Generator is a high-performance Rust application that creates stu
 ### Architecture
 
 The application is built with a modular architecture:
+
 - **Core Engine**: Tile management and color matching
 - **Similarity Database**: Efficient color similarity caching
 - **Optimizer**: Post-placement optimization using simulated annealing
@@ -88,6 +98,7 @@ The application is built with a modular architecture:
 ## Contributing
 
 Before contributing, please:
+
 1. Review the [API documentation](api/) to understand the codebase
 2. Run all tests: `cargo test`
 3. Check formatting: `cargo fmt --check`

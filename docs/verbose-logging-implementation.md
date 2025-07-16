@@ -9,11 +9,13 @@ This document describes the implementation of a comprehensive verbose logging sy
 ### Components Added
 
 1. **GUI Configuration Extension**
+
    - Added `verbose_logging: bool` field to `MosaicSettings` struct
    - Added `VerboseLoggingToggled(bool)` message to the `Message` enum
    - Added checkbox UI control in the Advanced Settings section
 
 2. **Logging Infrastructure**
+
    - Implemented dual logging system: regular messages and debug messages
    - `log_message()` closure for standard user-visible messages
    - `debug_log()` closure for verbose-only debug information
@@ -68,17 +70,17 @@ fn generate_mosaic_internal(
     settings: MosaicSettings,
 ) -> Result<String, String> {
     let verbose = settings.verbose_logging;
-    
+
     let log_message = |message: &str| {
         println!("{}", message);
     };
-    
+
     let debug_log = |message: &str| {
         if verbose {
             println!("[DEBUG] {}", message);
         }
     };
-    
+
     // ... implementation using both logging functions
 }
 ```
@@ -86,23 +88,27 @@ fn generate_mosaic_internal(
 ## Logging Coverage Details
 
 ### 1. File Operations
+
 - **Target Image Loading**: File path, dimensions, color format
 - **Material Directory Scanning**: File count, filtering results
 - **Output Image Saving**: Dimensions, file size
 
 ### 2. Material Processing
+
 - **Parallel Tile Loading**: Individual tile details when verbose
 - **Lab Color Calculation**: L, a, b values for each material
 - **Aspect Ratio Computation**: Width/height ratios
 - **Error Handling**: Failed image loads with specific error messages
 
 ### 3. Similarity Database
+
 - **Database Creation**: New vs. existing database loading
 - **Tile Addition**: Progress updates every 50 tiles in verbose mode
 - **Similarity Calculation**: Matrix building and caching
 - **File Persistence**: Save/load operation status
 
 ### 4. Grid Processing
+
 - **Progress Tracking**: Row-by-row and cell-by-cell progress
 - **Color Matching**: Target Lab colors vs. selected tile colors
 - **Tile Selection**: Which specific tile was chosen for each position
@@ -110,6 +116,7 @@ fn generate_mosaic_internal(
 - **Performance Metrics**: Processing time and completion statistics
 
 ### 5. Error Scenarios
+
 - **Missing Files**: Detailed error messages for each failure
 - **Processing Failures**: Specific tile loading or processing errors
 - **Fallback Handling**: When no suitable tiles are found
@@ -117,6 +124,7 @@ fn generate_mosaic_internal(
 ## UI Integration
 
 ### Checkbox Control
+
 Added to the Advanced Settings section:
 
 ```rust
@@ -125,6 +133,7 @@ checkbox("Verbose logging (debug output)", self.settings.verbose_logging)
 ```
 
 ### State Management
+
 The checkbox state is properly synchronized with the `MosaicSettings` struct and persists throughout the GUI session.
 
 ## Testing Implementation
@@ -132,15 +141,18 @@ The checkbox state is properly synchronized with the `MosaicSettings` struct and
 ### Test Coverage (11 new tests)
 
 1. **Configuration Tests**
+
    - `test_mosaic_settings_default_verbose_logging_false`: Verifies default state
    - `test_mosaic_settings_with_verbose_logging_enabled`: Tests enabled state
    - `test_settings_include_verbose_logging`: Comprehensive settings validation
 
 2. **Message Handling Tests**
+
    - `test_verbose_logging_message_enum`: Message creation validation
    - `test_verbose_logging_in_mosaic_app_update`: State transitions
 
 3. **Logging Function Tests**
+
    - `test_log_message_output`: Standard message logging
    - `test_debug_log_with_verbose_enabled`: Debug output when enabled
    - `test_debug_log_with_verbose_disabled`: Silent operation when disabled
@@ -151,6 +163,7 @@ The checkbox state is properly synchronized with the `MosaicSettings` struct and
    - `test_verbose_logging_ui_checkbox_state`: UI state management
 
 ### Test Infrastructure
+
 - Uses temporary directories and synthetic images for safe testing
 - Captures and validates logging output behavior
 - Tests both enabled and disabled verbose modes
@@ -159,6 +172,7 @@ The checkbox state is properly synchronized with the `MosaicSettings` struct and
 ## Usage Examples
 
 ### Normal Operation (Verbose Off)
+
 ```
 🚀 Starting mosaic generation...
 📁 Target: photo.jpg
@@ -185,6 +199,7 @@ The checkbox state is properly synchronized with the `MosaicSettings` struct and
 ```
 
 ### Verbose Operation (Verbose On)
+
 ```
 🚀 Starting mosaic generation...
 📁 Target: photo.jpg
@@ -239,11 +254,13 @@ The checkbox state is properly synchronized with the `MosaicSettings` struct and
 ## Performance Considerations
 
 ### Minimal Impact Design
+
 - Debug logging is conditional and only executes when verbose mode is enabled
 - Uses efficient string formatting and avoids unnecessary allocations
 - Console output is asynchronous and doesn't block processing
 
 ### Memory Usage
+
 - No persistent logging storage - all output goes directly to console
 - Debug messages are generated on-demand rather than buffered
 - Verbose mode adds minimal memory overhead
@@ -251,6 +268,7 @@ The checkbox state is properly synchronized with the `MosaicSettings` struct and
 ## Future Enhancements
 
 ### Potential Improvements
+
 1. **Log Levels**: Add multiple verbosity levels (INFO, DEBUG, TRACE)
 2. **File Logging**: Option to save verbose output to a log file
 3. **Real-time Updates**: Stream debug information to the GUI log viewer
@@ -258,6 +276,7 @@ The checkbox state is properly synchronized with the `MosaicSettings` struct and
 5. **Filtering**: Allow users to filter specific types of debug messages
 
 ### Integration Opportunities
+
 1. **CLI Compatibility**: Extend verbose logging to the command-line interface
 2. **Configuration Persistence**: Save verbose preference in settings file
 3. **Network Logging**: Option to send debug data to external monitoring systems

@@ -13,14 +13,18 @@ The API is designed around the principle of separation of concerns, with each mo
 ## Core Components
 
 ### 🏗️ [Core API](/api/core)
+
 The foundational traits, structs, and types that power the entire system:
+
 - **Tile**: Material image representation with color and aspect ratio
 - **MosaicGenerator**: Core trait for color calculation and aspect ratio matching
 - **UsageTracker**: Manages material usage frequency and variety
 - **MosaicGeneratorImpl**: Main implementation of core algorithms
 
 ### 🧩 [Modules](/api/modules)
+
 Specialized modules for advanced functionality:
+
 - **similarity**: Color similarity calculations and caching
 - **adjacency**: Spatial constraints and penalty calculations
 - **optimizer**: Simulated annealing and optimization algorithms
@@ -29,14 +33,18 @@ Specialized modules for advanced functionality:
 - **time_tracker**: Performance monitoring and ETA calculations
 
 ### ⚠️ [Error Handling](/api/error-handling)
+
 Comprehensive error management patterns:
+
 - Error types and hierarchies
 - Recovery strategies
 - Best practices for error handling
 - Common error scenarios and solutions
 
 ### ⚡ [Performance Guide](/api/performance)
+
 Performance characteristics and optimization techniques:
+
 - Time and space complexity analysis
 - Performance benchmarks
 - Memory usage patterns
@@ -101,6 +109,7 @@ let distance = lab_distance_normalized(&lab1, &lab2); // 0.0-1.0 range
 ```
 
 **Benefits of Lab Color Space:**
+
 - Perceptually uniform color differences
 - Device-independent color representation
 - Separation of lightness and color components
@@ -149,13 +158,13 @@ fn find_similar_tile(&self, target: &Lab) -> Option<&Tile> {
 
 The API components have different thread safety characteristics:
 
-| Component | Thread Safety | Notes |
-|-----------|---------------|-------|
-| `Tile` | ✅ **Send + Sync** | Immutable after creation |
-| `SimilarityDatabase` | ✅ **Read-only concurrent** | Safe after building |
-| `UsageTracker` | ❌ **Single-threaded** | Requires mutable access |
-| `ColorAdjustment` | ✅ **Stateless** | Pure functions, fully thread-safe |
-| `GridVisualizer` | ❌ **Single writer** | Terminal output coordination |
+| Component            | Thread Safety               | Notes                             |
+| -------------------- | --------------------------- | --------------------------------- |
+| `Tile`               | ✅ **Send + Sync**          | Immutable after creation          |
+| `SimilarityDatabase` | ✅ **Read-only concurrent** | Safe after building               |
+| `UsageTracker`       | ❌ **Single-threaded**      | Requires mutable access           |
+| `ColorAdjustment`    | ✅ **Stateless**            | Pure functions, fully thread-safe |
+| `GridVisualizer`     | ❌ **Single writer**        | Terminal output coordination      |
 
 ## Integration Patterns
 
@@ -168,7 +177,7 @@ impl MosaicGenerator for CustomGenerator {
     fn calculate_average_lab(img: &DynamicImage) -> Lab {
         // Custom implementation
     }
-    
+
     fn is_aspect_ratio_match(img_aspect: f32, target_aspect: f32, tolerance: f32) -> bool {
         // Custom matching logic
     }
@@ -200,7 +209,7 @@ The API includes comprehensive testing infrastructure:
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_color_calculation() {
         let img = create_test_image();
@@ -211,6 +220,7 @@ mod tests {
 ```
 
 **Testing Guidelines:**
+
 - Unit tests for all public functions
 - Property-based testing for mathematical operations
 - Integration tests for complete workflows
@@ -221,6 +231,7 @@ mod tests {
 ### Version Compatibility
 
 The API follows semantic versioning:
+
 - **Major versions**: Breaking changes to public interfaces
 - **Minor versions**: New features with backward compatibility
 - **Patch versions**: Bug fixes and performance improvements
@@ -236,13 +247,13 @@ When upgrading between versions:
 
 ## Performance Characteristics Summary
 
-| Operation | Time Complexity | Space Complexity | Notes |
-|-----------|----------------|------------------|-------|
-| **Tile Loading** | O(n × p) | O(n) | n=tiles, p=pixels per tile |
-| **Similarity Database** | O(n²) | O(n²) | One-time build cost |
-| **Color Search** | O(log n) | O(n) | k-d tree search |
-| **Adjacency Calculation** | O(1) | O(1) | Per position |
-| **Optimization** | O(i × n) | O(1) | i=iterations, n=grid size |
+| Operation                 | Time Complexity | Space Complexity | Notes                      |
+| ------------------------- | --------------- | ---------------- | -------------------------- |
+| **Tile Loading**          | O(n × p)        | O(n)             | n=tiles, p=pixels per tile |
+| **Similarity Database**   | O(n²)           | O(n²)            | One-time build cost        |
+| **Color Search**          | O(log n)        | O(n)             | k-d tree search            |
+| **Adjacency Calculation** | O(1)            | O(1)             | Per position               |
+| **Optimization**          | O(i × n)        | O(1)             | i=iterations, n=grid size  |
 
 ## Getting Started
 

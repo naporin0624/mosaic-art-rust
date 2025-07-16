@@ -9,17 +9,20 @@ This section provides step-by-step examples for common use cases and creative ap
 **Goal**: Create a simple mosaic using default settings
 
 **Materials Needed**:
+
 - 1 target image (photo or artwork)
 - 100+ material images (photos, screenshots, artwork)
 
 **Steps**:
 
 1. **Launch the GUI**
+
    ```bash
    ./target/release/mosaic-gui
    ```
 
 2. **Select Files**
+
    - Click "Browse" next to "Target Image"
    - Select your main image (e.g., `portrait.jpg`)
    - Click "Browse" next to "Material Directory"
@@ -28,6 +31,7 @@ This section provides step-by-step examples for common use cases and creative ap
    - Choose save location (e.g., `my-first-mosaic.png`)
 
 3. **Basic Settings**
+
    - Keep "Auto-calculate grid from total tiles" checked
    - Set "Total tiles" to 1000
    - Click "Calculate Grid"
@@ -39,6 +43,7 @@ This section provides step-by-step examples for common use cases and creative ap
    - View your result!
 
 **Expected Results**:
+
 - Processing time: 1-5 minutes
 - Output size: Similar to target image dimensions
 - Quality: Good balance of detail and recognizability
@@ -48,6 +53,7 @@ This section provides step-by-step examples for common use cases and creative ap
 **Goal**: Create a detailed portrait mosaic with optimal settings
 
 **Materials Needed**:
+
 - High-resolution portrait (1920×1080 or higher)
 - 500+ diverse material images
 - Powerful computer (8GB+ RAM)
@@ -55,16 +61,19 @@ This section provides step-by-step examples for common use cases and creative ap
 **Steps**:
 
 1. **File Selection**
+
    - Target: High-resolution portrait
    - Materials: Diverse collection with good color variety
    - Output: PNG format for best quality
 
 2. **Grid Settings**
+
    - Enable auto-calculate
    - Set total tiles to 2500
    - Calculated grid: ~67×37
 
 3. **Advanced Settings** (Click ► to expand)
+
    - Max materials: 800
    - Color adjustment: 0.4
    - Max usage per image: 2
@@ -78,6 +87,7 @@ This section provides step-by-step examples for common use cases and creative ap
    - Final result: High-detail portrait with minimal repetition
 
 **Expected Results**:
+
 - Very detailed facial features
 - Smooth color transitions
 - Minimal tile repetition
@@ -88,6 +98,7 @@ This section provides step-by-step examples for common use cases and creative ap
 **Goal**: Create a landscape mosaic emphasizing natural patterns
 
 **Materials Needed**:
+
 - Landscape photograph (mountain, ocean, forest)
 - Nature-themed material images
 - Medium-powered computer
@@ -95,16 +106,19 @@ This section provides step-by-step examples for common use cases and creative ap
 **Steps**:
 
 1. **File Selection**
+
    - Target: Landscape with clear horizon and sky
    - Materials: Nature photos (trees, clouds, water, rocks)
    - Output: JPG format for smaller file size
 
 2. **Grid Settings**
+
    - Enable auto-calculate
    - Set total tiles to 1800
    - Calculated grid: ~57×32
 
 3. **Advanced Settings**
+
    - Max materials: 600
    - Color adjustment: 0.5 (higher for natural blending)
    - Max usage per image: 3
@@ -118,6 +132,7 @@ This section provides step-by-step examples for common use cases and creative ap
    - Organic-looking patterns
 
 **Expected Results**:
+
 - Natural-looking texture variations
 - Smooth sky gradients
 - Realistic terrain representation
@@ -130,6 +145,7 @@ This section provides step-by-step examples for common use cases and creative ap
 **Goal**: Create an artistic mosaic that mimics a specific art style
 
 **Materials Needed**:
+
 - Target image (any subject)
 - Material images from specific art movement (e.g., impressionist paintings)
 - Creative eye for artistic effect
@@ -137,11 +153,13 @@ This section provides step-by-step examples for common use cases and creative ap
 **Steps**:
 
 1. **Curate Materials**
+
    - Collect 200-400 images from chosen art style
    - Ensure good color and texture variety
    - Resize to consistent dimensions if needed
 
 2. **Configure for Artistic Effect**
+
    - Total tiles: 1200-1600
    - Max materials: 300-400
    - Color adjustment: 0.1 (preserve original art colors)
@@ -156,6 +174,7 @@ This section provides step-by-step examples for common use cases and creative ap
    - Try different tile counts for different effects
 
 **Expected Results**:
+
 - Target image rendered in chosen art style
 - Unique artistic interpretation
 - Each tile maintains original artwork character
@@ -166,6 +185,7 @@ This section provides step-by-step examples for common use cases and creative ap
 **Goal**: Create a retro pixel art style mosaic
 
 **Materials Needed**:
+
 - Target image with clear, bold colors
 - Pixel art sprites or simple geometric shapes
 - Retro color palette
@@ -173,11 +193,13 @@ This section provides step-by-step examples for common use cases and creative ap
 **Steps**:
 
 1. **Material Preparation**
+
    - Collect pixel art sprites, icons, or simple shapes
    - Ensure consistent pixel dimensions
    - Focus on bold, saturated colors
 
 2. **Settings for Pixel Art Style**
+
    - Total tiles: 400-800 (fewer for chunky pixel effect)
    - Max materials: 100-200
    - Color adjustment: 0.0 (preserve pixel art colors)
@@ -191,6 +213,7 @@ This section provides step-by-step examples for common use cases and creative ap
    - Adjust tile count as needed
 
 **Expected Results**:
+
 - Retro pixel art aesthetic
 - Chunky, blocky appearance
 - Bold color contrasts
@@ -201,6 +224,7 @@ This section provides step-by-step examples for common use cases and creative ap
 **Goal**: Create a photo collage mosaic using personal photos
 
 **Materials Needed**:
+
 - Target image (family photo, pet, etc.)
 - Collection of personal photos
 - Sentimental value for creative project
@@ -208,11 +232,13 @@ This section provides step-by-step examples for common use cases and creative ap
 **Steps**:
 
 1. **Personal Photo Collection**
+
    - Gather 200-500 personal photos
    - Include variety: people, places, objects
    - Mix color and black & white photos
 
 2. **Collage Settings**
+
    - Total tiles: 1500-2000
    - Max materials: 400-500
    - Color adjustment: 0.6 (help photos blend)
@@ -227,6 +253,7 @@ This section provides step-by-step examples for common use cases and creative ap
    - Perfect for gifts or memory preservation
 
 **Expected Results**:
+
 - Personal photo collage
 - Each tile is a distinct memory
 - Meaningful artistic creation
@@ -239,6 +266,7 @@ This section provides step-by-step examples for common use cases and creative ap
 **Goal**: Create extremely high-quality mosaics through multiple processing passes
 
 **Materials Needed**:
+
 - High-resolution target image
 - Large, diverse material collection (1000+ images)
 - Powerful computer with 16GB+ RAM
@@ -246,6 +274,7 @@ This section provides step-by-step examples for common use cases and creative ap
 **Steps**:
 
 1. **First Pass - Structure**
+
    - Total tiles: 3000
    - Max materials: 1000
    - Color adjustment: 0.3
@@ -255,12 +284,14 @@ This section provides step-by-step examples for common use cases and creative ap
    - Optimization iterations: 2000
 
 2. **Analyze Results**
+
    - Enable verbose logging
    - Note areas with poor tile matching
    - Identify repetitive patterns
    - Check color accuracy
 
 3. **Second Pass - Refinement**
+
    - Adjust settings based on first pass
    - Increase color adjustment if needed
    - Add more materials if available
@@ -273,6 +304,7 @@ This section provides step-by-step examples for common use cases and creative ap
    - Final quality check
 
 **Expected Results**:
+
 - Museum-quality mosaic
 - Exceptional detail and color accuracy
 - Minimal artifacts or repetition
@@ -283,6 +315,7 @@ This section provides step-by-step examples for common use cases and creative ap
 **Goal**: Process multiple related images with consistent settings
 
 **Materials Needed**:
+
 - Multiple target images (portrait series, landscape collection)
 - Consistent material collection
 - Organized file structure
@@ -290,6 +323,7 @@ This section provides step-by-step examples for common use cases and creative ap
 **Steps**:
 
 1. **Prepare File Structure**
+
    ```
    project/
    ├── targets/
@@ -306,11 +340,13 @@ This section provides step-by-step examples for common use cases and creative ap
    ```
 
 2. **Establish Baseline Settings**
+
    - Process first image with various settings
    - Document successful configuration
    - Note processing time and resource usage
 
 3. **Process Series**
+
    - Use identical settings for all images
    - Process one at a time
    - Monitor system resources
@@ -323,6 +359,7 @@ This section provides step-by-step examples for common use cases and creative ap
    - Reprocess if necessary
 
 **Expected Results**:
+
 - Consistent visual style across series
 - Predictable processing times
 - Organized output collection
@@ -337,18 +374,21 @@ This section provides step-by-step examples for common use cases and creative ap
 **Diagnostic Steps**:
 
 1. **Enable Verbose Logging**
+
    - Check advanced settings
    - Enable verbose logging
    - Regenerate mosaic
    - Review log messages
 
 2. **Analyze Issues**
+
    - Check material loading messages
    - Look for color matching warnings
    - Note any error messages
    - Review processing statistics
 
 3. **Adjust Settings**
+
    - Increase color adjustment strength
    - Add more material images
    - Increase total tiles for more detail
@@ -361,6 +401,7 @@ This section provides step-by-step examples for common use cases and creative ap
    - Build optimal configuration
 
 **Expected Results**:
+
 - Systematic problem identification
 - Targeted setting adjustments
 - Improved mosaic quality
@@ -373,18 +414,21 @@ This section provides step-by-step examples for common use cases and creative ap
 **Optimization Steps**:
 
 1. **Baseline Measurement**
+
    - Record current processing time
    - Monitor memory usage
    - Note system specifications
    - Document current settings
 
 2. **Systematic Reduction**
+
    - Reduce total tiles by 25%
    - Reduce max materials by 25%
    - Disable optimization temporarily
    - Test processing time
 
 3. **Find Balance Point**
+
    - Gradually increase settings
    - Monitor performance impact
    - Find optimal balance
@@ -397,6 +441,7 @@ This section provides step-by-step examples for common use cases and creative ap
    - Consider hardware upgrades
 
 **Expected Results**:
+
 - Acceptable processing time
 - Stable memory usage
 - Maintained quality
@@ -407,12 +452,14 @@ This section provides step-by-step examples for common use cases and creative ap
 ### Material Collection Tips
 
 1. **Diversity is Key**
+
    - Wide range of colors
    - Various textures and patterns
    - Different subjects and themes
    - Mix of bright and dark images
 
 2. **Quality Matters**
+
    - High resolution when possible
    - Good exposure and contrast
    - Minimal noise or artifacts
@@ -427,12 +474,14 @@ This section provides step-by-step examples for common use cases and creative ap
 ### Settings Optimization
 
 1. **Start Conservative**
+
    - Begin with lower tile counts
    - Use moderate material limits
    - Enable optimization
    - Adjust based on results
 
 2. **Iterative Improvement**
+
    - Make one change at a time
    - Test results thoroughly
    - Document successful settings
@@ -447,12 +496,14 @@ This section provides step-by-step examples for common use cases and creative ap
 ### Creative Exploration
 
 1. **Experiment with Styles**
+
    - Try different material themes
    - Vary color adjustment strengths
    - Explore different tile counts
    - Mix artistic and photographic materials
 
 2. **Document Everything**
+
    - Keep notes on successful settings
    - Record processing times
    - Save example outputs

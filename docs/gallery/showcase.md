@@ -8,7 +8,7 @@ This page showcases user-submitted mosaics. As the community grows, we'll featur
 
 ## Featured Community Creations
 
-*This section will be populated with community contributions as they are submitted.*
+_This section will be populated with community contributions as they are submitted._
 
 ### How to Get Featured
 
@@ -17,17 +17,20 @@ We're always excited to see what the community creates with the Mosaic Art Gener
 #### Submission Requirements
 
 **📸 High-Quality Images**
+
 - Original source image (before mosaic generation)
 - Final mosaic result (high-resolution)
 - Optional: Work-in-progress shots or comparisons
 
 **⚙️ Technical Details**
+
 - Complete command-line configuration used
 - Processing time and system specifications
 - Material collection details (count, source, etc.)
 - Any special techniques or optimizations applied
 
 **📝 Description**
+
 - Artistic intent and inspiration
 - Challenges faced during creation
 - Tips and insights for other users
@@ -36,11 +39,13 @@ We're always excited to see what the community creates with the Mosaic Art Gener
 #### Submission Process
 
 1. **Prepare Your Materials**
+
    - Export high-quality images (PNG or JPG)
    - Document your configuration settings
    - Write a brief description of your process
 
 2. **Submit via GitHub Issues**
+
    - Visit [GitHub Issues](https://github.com/naporin0624/mosaic-art-rust/issues)
    - Create a new issue with the "gallery" label
    - Include all materials and information
@@ -53,15 +58,17 @@ We're always excited to see what the community creates with the Mosaic Art Gener
 
 #### Submission Template
 
-```markdown
+````markdown
 # Gallery Submission: [Your Title]
 
 ## Artwork Details
+
 - **Title**: Your mosaic title
 - **Artist**: Your name/handle
 - **Description**: Brief description of the artwork and inspiration
 
 ## Technical Specifications
+
 - **Original Resolution**: e.g., 1920×1080
 - **Grid Size**: e.g., 100×75 (7,500 tiles)
 - **Material Count**: e.g., 1,500 images
@@ -69,19 +76,24 @@ We're always excited to see what the community creates with the Mosaic Art Gener
 - **System**: e.g., Intel i7, 16GB RAM
 
 ## Configuration Used
+
 ```bash
 ./target/release/mosaic-rust \
   --target your_image.jpg \
   [... your complete configuration]
 ```
+````
 
 ## Images
+
 - [ ] Original image attached
 - [ ] Final mosaic attached
 - [ ] Permission granted for showcase use
 
 ## Notes
+
 Any special techniques, challenges, or tips for the community.
+
 ```
 
 ## Showcase Categories
@@ -243,3 +255,4 @@ As the showcase grows, we plan to implement:
 - **Documentation**: Contribute to guides and tutorials
 
 Start creating and share your amazing mosaic art with the world! We can't wait to see what you'll create with the Mosaic Art Generator.
+```

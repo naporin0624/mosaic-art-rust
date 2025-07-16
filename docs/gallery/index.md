@@ -5,6 +5,7 @@ Welcome to the Mosaic Art Generator gallery! Here you'll find stunning examples 
 ## Featured Mosaics
 
 ### High-Resolution Birthday Artwork
+
 A detailed 24,000-tile mosaic created for the Ristill Birthday 2025 celebration, demonstrating the generator's ability to handle complex artwork with vibrant colors.
 
 - **Grid Size**: 206×116 (23,896 tiles)
@@ -15,14 +16,18 @@ A detailed 24,000-tile mosaic created for the Ristill Birthday 2025 celebration,
 ## Gallery Sections
 
 ### 🎨 **[Examples](/gallery/examples)**
+
 Real-world examples with detailed configuration breakdowns:
+
 - Portrait mosaics
 - Landscape artwork
 - Abstract compositions
 - Logo recreations
 
 ### 🌟 **[Showcase](/gallery/showcase)**
+
 Community-contributed mosaics and advanced techniques:
+
 - User submissions
 - Creative applications
 - Artistic interpretations
@@ -30,9 +35,10 @@ Community-contributed mosaics and advanced techniques:
 
 ## Contributing to the Gallery
 
-Have you created an amazing mosaic with the generator? We'd love to feature it in our gallery! 
+Have you created an amazing mosaic with the generator? We'd love to feature it in our gallery!
 
 **Submission Guidelines:**
+
 - High-quality source and result images
 - Configuration details used
 - Brief description of the artwork

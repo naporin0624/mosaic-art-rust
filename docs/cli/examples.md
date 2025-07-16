@@ -14,6 +14,7 @@ mosaic-rust --target photo.jpg --material-src ./materials --output my_mosaic.jpg
 ```
 
 This creates a mosaic using default settings:
+
 - 50×28 grid (1400 tiles total)
 - Up to 500 material images
 - Each image used up to 3 times
@@ -33,6 +34,7 @@ mkdir materials
 ```
 
 **Tips for material selection:**
+
 - Use diverse colors for best results
 - 100-1000 images recommended
 - Square images work best for square targets
@@ -88,6 +90,7 @@ mosaic-rust \
 ```
 
 **Key settings:**
+
 - High grid resolution (100×150)
 - Many materials (2000)
 - Limited reuse (2 per image)
@@ -112,6 +115,7 @@ mosaic-rust \
 ```
 
 **Key settings:**
+
 - Wide aspect ratio (120×50)
 - Moderate adjacency penalty (0.2)
 - Higher reuse allowed (4 per image)
@@ -134,6 +138,7 @@ mosaic-rust \
 ```
 
 **Key settings:**
+
 - Small grid (30×20)
 - Few materials (200)
 - No optimization
@@ -158,6 +163,7 @@ mosaic-rust \
 ```
 
 **Key settings:**
+
 - Square grid (60×60)
 - Each image used only once
 - High adjacency penalty (0.7)
@@ -268,6 +274,7 @@ mosaic-rust \
 **Problem:** Colors don't match the target well.
 
 **Solutions:**
+
 ```bash
 # Increase color adjustment
 --color-adjustment-strength 0.7
@@ -284,6 +291,7 @@ mosaic-rust \
 **Problem:** Same images appear too frequently.
 
 **Solutions:**
+
 ```bash
 # Reduce usage per image
 --max-usage-per-image 1
@@ -300,6 +308,7 @@ mosaic-rust \
 **Problem:** Takes too long to generate.
 
 **Solutions:**
+
 ```bash
 # Reduce grid size
 --grid-w 40 --grid-h 30
@@ -319,6 +328,7 @@ mosaic-rust \
 **Problem:** Process crashes with memory error.
 
 **Solutions:**
+
 ```bash
 # Reduce grid size significantly
 --grid-w 30 --grid-h 20
@@ -334,6 +344,7 @@ mosaic-rust \
 **Problem:** "No tiles matched target aspect ratio" error.
 
 **Solutions:**
+
 ```bash
 # Increase aspect tolerance
 --aspect-tolerance 0.3
@@ -401,13 +412,13 @@ mosaic-rust --target image3.jpg --material-src materials --output mosaic3.jpg \
 
 ### Grid Size Selection
 
-| Target Use | Grid Size | Total Tiles | Quality Level |
-|------------|-----------|-------------|---------------|
-| Web preview | 20×15 | 300 | Low |
-| Social media | 40×30 | 1,200 | Medium |
-| Print (small) | 60×45 | 2,700 | High |
-| Print (large) | 100×75 | 7,500 | Very High |
-| Gallery print | 150×100 | 15,000 | Maximum |
+| Target Use    | Grid Size | Total Tiles | Quality Level |
+| ------------- | --------- | ----------- | ------------- |
+| Web preview   | 20×15     | 300         | Low           |
+| Social media  | 40×30     | 1,200       | Medium        |
+| Print (small) | 60×45     | 2,700       | High          |
+| Print (large) | 100×75    | 7,500       | Very High     |
+| Gallery print | 150×100   | 15,000      | Maximum       |
 
 ### Material Count Guidelines
 
@@ -420,13 +431,13 @@ mosaic-rust --target image3.jpg --material-src materials --output mosaic3.jpg \
 
 Understanding how parameters affect each other:
 
-| Parameter | Affects | Trade-off |
-|-----------|---------|-----------|
-| Grid size | Detail vs. Speed | Larger = more detail, slower |
-| Max materials | Quality vs. Memory | More = better quality, more RAM |
-| Adjacency penalty | Variety vs. Color | Higher = more variety, less color accuracy |
-| Color adjustment | Accuracy vs. Authenticity | Higher = better color match, less original look |
-| Optimization iterations | Quality vs. Time | More = better placement, slower |
+| Parameter               | Affects                   | Trade-off                                       |
+| ----------------------- | ------------------------- | ----------------------------------------------- |
+| Grid size               | Detail vs. Speed          | Larger = more detail, slower                    |
+| Max materials           | Quality vs. Memory        | More = better quality, more RAM                 |
+| Adjacency penalty       | Variety vs. Color         | Higher = more variety, less color accuracy      |
+| Color adjustment        | Accuracy vs. Authenticity | Higher = better color match, less original look |
+| Optimization iterations | Quality vs. Time          | More = better placement, slower                 |
 
 ## Integration Examples
 

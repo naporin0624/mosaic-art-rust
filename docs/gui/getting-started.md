@@ -12,14 +12,17 @@ Before you start, ensure you have the following installed:
 ### Platform Requirements
 
 #### Windows
+
 - Windows 10 or later (recommended)
 - No additional dependencies required
 
 #### macOS
+
 - macOS 10.15 (Catalina) or later
 - Xcode command line tools (for building)
 
 #### Linux
+
 - Recent Linux distribution
 - GTK 3 development libraries
 
@@ -39,25 +42,28 @@ sudo pacman -S gtk3 xdotool
 ### Method 1: Build from Source
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/naporin0624/mosaic-art-rust
    cd mosaic-art-rust
    ```
 
 2. **Build the GUI application**
+
    ```bash
    # Development build (faster compilation)
    cargo build --bin mosaic-gui
-   
+
    # Release build (optimized, recommended)
    cargo build --bin mosaic-gui --release
    ```
 
 3. **Run the application**
+
    ```bash
    # Development build
    ./target/debug/mosaic-gui
-   
+
    # Release build
    ./target/release/mosaic-gui
    ```
@@ -96,11 +102,13 @@ Before starting, organize your files:
 ### Step 2: Select Files
 
 1. **Target Image Selection**
+
    - Click "Browse" next to "Target Image"
    - Navigate to your main image file
    - Select and click "Open"
 
 2. **Material Directory Selection**
+
    - Click "Browse" next to "Material Directory"
    - Navigate to your folder containing tile images
    - Select the folder and click "Open"
@@ -114,6 +122,7 @@ Before starting, organize your files:
 ### Step 3: Configure Basic Settings
 
 1. **Grid Settings**
+
    - Check "Auto-calculate grid from total tiles" (recommended for beginners)
    - Enter total number of tiles (e.g., 1400 for balanced detail)
    - Click "Calculate Grid" to see the dimensions
@@ -126,10 +135,12 @@ Before starting, organize your files:
 ### Step 4: Generate Your Mosaic
 
 1. **Start Generation**
+
    - Click "Generate Mosaic"
    - The button will show "Processing..." during generation
 
 2. **Monitor Progress**
+
    - Watch the progress bar for completion percentage
    - Check the "Generation Log" for detailed status updates
    - Processing time depends on image size and tile count
@@ -142,16 +153,19 @@ Before starting, organize your files:
 ## Understanding the Interface
 
 ### File Selection Panel
+
 - **Target Image**: The main image to convert into a mosaic
 - **Material Directory**: Folder containing images to use as tiles
 - **Output Path**: Where the final mosaic will be saved
 
 ### Grid Settings Panel
+
 - **Auto-calculate**: Automatically determines optimal grid dimensions
 - **Total tiles**: Number of tiles to use (affects detail level)
 - **Grid Width/Height**: Manual control over mosaic dimensions
 
 ### Advanced Settings Panel (Click ► to expand)
+
 - **Configuration**: Fine-tune color matching and tile usage
 - **Optimization**: Enable advanced placement algorithms
 - **Debugging**: Verbose logging for troubleshooting
@@ -159,18 +173,21 @@ Before starting, organize your files:
 ## Tips for Better Results
 
 ### Choosing Good Material Images
+
 - **Diverse colors**: Use images with varied color palettes
 - **High resolution**: Larger images provide better detail
 - **Consistent quality**: Similar image quality across all tiles
 - **Sufficient quantity**: More tiles = better matching options
 
 ### Optimal Settings for Beginners
+
 - **Total tiles**: 1000-2000 for balanced results
 - **Max materials**: 500-1000 (depends on your collection size)
 - **Color adjustment**: 0.3 (default works well)
 - **Enable optimization**: ✅ (improves tile placement)
 
 ### Performance Considerations
+
 - **Start small**: Try 500-1000 tiles for your first mosaic
 - **Monitor memory**: Large tile counts use more RAM
 - **Use release builds**: 3-5x faster than debug builds
@@ -179,6 +196,7 @@ Before starting, organize your files:
 ## Common First-Time Issues
 
 ### GUI Won't Start
+
 ```bash
 # Check if GUI dependencies are installed (Linux)
 sudo apt-get install libgtk-3-dev libxdo-dev
@@ -188,17 +206,20 @@ RUST_LOG=debug ./target/release/mosaic-gui
 ```
 
 ### File Dialog Issues
+
 - Ensure you have permission to access selected directories
 - Try running with elevated privileges if needed
 - Check that file paths don't contain special characters
 
 ### Out of Memory Errors
+
 - Reduce the number of total tiles
 - Reduce max materials setting
 - Use smaller/lower resolution material images
 - Close other memory-intensive applications
 
 ### Slow Performance
+
 - Use release builds instead of debug builds
 - Reduce optimization iterations
 - Consider using fewer material images

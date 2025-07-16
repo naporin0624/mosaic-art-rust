@@ -5,6 +5,7 @@ Get up and running with the Mosaic Art Generator in just a few minutes!
 ## Before You Begin
 
 Make sure you have:
+
 - ✅ [Installed the Mosaic Art Generator](/getting-started/installation)
 - ✅ A target image (photo.jpg, artwork.png, etc.)
 - ✅ A collection of material images in a directory
@@ -22,6 +23,7 @@ cp /path/to/your/images/* materials/
 ```
 
 **Material Image Tips:**
+
 - Use 20-500+ images for best results
 - Higher resolution materials = better quality
 - Diverse colors and subjects work well
@@ -96,18 +98,19 @@ This creates a higher resolution mosaic (80×60 = 4,800 tiles) with better optim
 
 ## Common Options Explained
 
-| Option | Description | Default | Recommendation |
-|--------|-------------|---------|----------------|
-| `--grid-w` | Tiles horizontally | 50 | 80-150 for high quality |
-| `--grid-h` | Tiles vertically | 28 | Maintain aspect ratio |
-| `--max-materials` | Maximum materials to use | 500 | 1000+ for variety |
-| `--adjacency-penalty-weight` | Prevent similar tiles clustering | 0.3 | 0.2-0.4 for balance |
-| `--color-adjustment-strength` | Color matching enhancement | 0.3 | 0.3-0.5 for accuracy |
-| `--optimization-iterations` | Post-processing improvements | 1000 | 2000+ for quality |
+| Option                        | Description                      | Default | Recommendation          |
+| ----------------------------- | -------------------------------- | ------- | ----------------------- |
+| `--grid-w`                    | Tiles horizontally               | 50      | 80-150 for high quality |
+| `--grid-h`                    | Tiles vertically                 | 28      | Maintain aspect ratio   |
+| `--max-materials`             | Maximum materials to use         | 500     | 1000+ for variety       |
+| `--adjacency-penalty-weight`  | Prevent similar tiles clustering | 0.3     | 0.2-0.4 for balance     |
+| `--color-adjustment-strength` | Color matching enhancement       | 0.3     | 0.3-0.5 for accuracy    |
+| `--optimization-iterations`   | Post-processing improvements     | 1000    | 2000+ for quality       |
 
 ## Performance vs Quality Trade-offs
 
 ### Fast Preview (< 30 seconds)
+
 ```bash
 ./target/release/mosaic-rust \
   --target photo.jpg \
@@ -121,6 +124,7 @@ This creates a higher resolution mosaic (80×60 = 4,800 tiles) with better optim
 ```
 
 ### Balanced Quality (1-3 minutes)
+
 ```bash
 ./target/release/mosaic-rust \
   --target photo.jpg \
@@ -134,6 +138,7 @@ This creates a higher resolution mosaic (80×60 = 4,800 tiles) with better optim
 ```
 
 ### Ultra High Quality (5-15 minutes)
+
 ```bash
 ./target/release/mosaic-rust \
   --target photo.jpg \
@@ -152,54 +157,65 @@ This creates a higher resolution mosaic (80×60 = 4,800 tiles) with better optim
 The generator provides detailed progress information:
 
 ### Loading Phase
+
 ```
 Loading materials from materials/...
 ✓ Loaded 347 materials in 2.3s
 ```
+
 - Shows how many materials were loaded
 - Filters by aspect ratio and file format
 
 ### Indexing Phase
+
 ```
 Building k-d tree...
 ✓ k-d tree built in 0.1s
 ```
+
 - Creates fast search structure for color matching
 - O(log n) search complexity
 
 ### Generation Phase
+
 ```
 Generating mosaic grid (50x28)...
 Progress: [████████████████████████████████████████] 100%
 Grid Status: [■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■]
 ```
+
 - Shows overall progress
 - Grid visualization updates in real-time
 - Each `■` represents a completed tile
 
 ### Optimization Phase (if enabled)
+
 ```
 Running optimization (1000 iterations)...
 ✓ Optimization completed in 3.2s
 ```
+
 - Improves tile placement using simulated annealing
 - Reduces repetitive patterns
 
 ## Common Issues
 
 ### "No materials found"
+
 ```bash
 # Check directory exists and contains images
 ls materials/
 ```
 
 ### "Warning: No materials match aspect ratio"
+
 ```bash
 # Increase tolerance
 --aspect-tolerance 0.2  # Allow ±20% difference
 ```
 
 ### Out of memory
+
 ```bash
 # Reduce memory usage
 --max-materials 100
@@ -208,6 +224,7 @@ ls materials/
 ```
 
 ### Slow performance
+
 ```bash
 # Ensure you're using release build
 cargo build --release  # Important!
@@ -226,6 +243,7 @@ Now that you've generated your first mosaic, you can:
 ## Getting Help
 
 If you encounter issues:
+
 - Check the [Troubleshooting Guide](/getting-started/troubleshooting)
 - Visit [GitHub Issues](https://github.com/naporin0624/mosaic-art-rust/issues)
 - Review the [CLI Reference](/guide/cli-reference)

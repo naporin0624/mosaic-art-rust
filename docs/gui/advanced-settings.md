@@ -5,17 +5,21 @@ The Advanced Settings panel contains expert-level configuration options that all
 ## Accessing Advanced Settings
 
 ### Panel Location
+
 The Advanced Settings panel is located below the Grid Settings panel in the main interface.
 
 ### Expanding the Panel
+
 - **Click the ► arrow** next to "Advanced Settings" to expand
 - **Click the ▼ arrow** to collapse the panel
 - **Default state**: Collapsed to reduce interface complexity
 
 ### Panel Organization
+
 The advanced settings are organized into three logical sections:
+
 1. **Configuration** - Core processing parameters
-2. **Optimization** - Post-placement enhancement options  
+2. **Optimization** - Post-placement enhancement options
 3. **Debugging** - Troubleshooting and analysis tools
 
 ## Configuration Section
@@ -31,7 +35,9 @@ This section contains settings that directly affect how tiles are selected, proc
 **Range**: 10 to 10,000+ (practical limits depend on system resources)
 
 **Impact**:
+
 - **Lower values (100-300)**:
+
   - Faster loading and processing
   - Reduced memory usage
   - Limited tile variety
@@ -44,6 +50,7 @@ This section contains settings that directly affect how tiles are selected, proc
   - Recommended for final high-quality mosaics
 
 **Recommendations**:
+
 - Match this setting to your material collection size
 - Start with 500 and adjust based on results
 - Consider system RAM when using high values
@@ -58,18 +65,22 @@ This section contains settings that directly affect how tiles are selected, proc
 **Range**: 0.0 (no adjustment) to 1.0 (maximum adjustment)
 
 **Technical Details**:
+
 - Uses HSV color space for natural-looking adjustments
 - Preserves image details while improving color accuracy
 - Applied during the final compositing phase
 
 **Impact**:
+
 - **0.0 (No Adjustment)**:
+
   - Pure color matching based on original tile colors
   - May look artificial if tiles don't match well
   - Preserves original tile appearance
   - Good for artistic effect or when tiles match well naturally
 
 - **0.3 (Balanced - Recommended)**:
+
   - Moderate color adjustment for better blending
   - Maintains tile character while improving accuracy
   - Good balance between realism and artistic effect
@@ -82,6 +93,7 @@ This section contains settings that directly affect how tiles are selected, proc
   - May introduce color artifacts with extreme adjustments
 
 **Recommendations**:
+
 - Start with 0.3 for most projects
 - Use 0.0 for artistic or stylized effects
 - Increase to 0.5-0.8 for photorealistic results
@@ -96,13 +108,16 @@ This section contains settings that directly affect how tiles are selected, proc
 **Range**: 1 to 100+ (practical limits depend on grid size and material count)
 
 **Impact**:
+
 - **1 (Maximum Variety)**:
+
   - Each tile used only once
   - Requires materials ≥ grid cells
   - Creates maximum visual variety
   - May sacrifice color accuracy for variety
 
 - **3 (Balanced - Recommended)**:
+
   - Allows moderate repetition
   - Good balance between variety and color accuracy
   - Works well with moderate material collections
@@ -115,6 +130,7 @@ This section contains settings that directly affect how tiles are selected, proc
   - May create noticeable repetition patterns
 
 **Recommendations**:
+
 - Use 1 when you have materials ≥ total tiles
 - Use 3 for balanced results with moderate collections
 - Increase for small material collections or when color accuracy is critical
@@ -125,6 +141,7 @@ This section contains settings that directly affect how tiles are selected, proc
 The Max Usage Per Image setting works seamlessly with the GUI's three-stage fallback system (added 2025-01-11) to ensure no grid cells remain empty:
 
 **Fallback Behavior**:
+
 1. **Normal Operation**: Tiles are used up to the specified limit
 2. **When Limit Reached**: If all suitable tiles have reached their usage limit:
    - The system automatically resets the usage tracker
@@ -135,12 +152,14 @@ The Max Usage Per Image setting works seamlessly with the GUI's three-stage fall
    - This guarantees every cell is filled
 
 **Example Scenario**:
+
 - Grid: 100×100 (10,000 cells)
 - Materials: 500 images
 - Max Usage: 3 per image
 - Maximum possible placements: 1,500
 
 In this case, the fallback system will:
+
 1. Use each image up to 3 times (1,500 placements)
 2. Reset usage tracking for remaining 8,500 cells
 3. Continue placing tiles with best color matches
@@ -148,6 +167,7 @@ In this case, the fallback system will:
 
 **Monitoring Fallback Activity**:
 Enable "Verbose logging" to see when fallback mechanisms activate:
+
 - "⚠️ Using fallback tile selection with reset usage tracker..."
 - "⚠️ Using final fallback - best color match without adjacency constraints..."
 
@@ -160,18 +180,22 @@ Enable "Verbose logging" to see when fallback mechanisms activate:
 **Range**: 0.0 (no penalty) to 1.0 (maximum penalty)
 
 **Technical Details**:
+
 - Uses precomputed similarity database for efficient lookup
 - Applies penalty during tile selection phase
 - Considers all four adjacent positions (up, down, left, right)
 
 **Impact**:
+
 - **0.0 (No Penalty)**:
+
   - Pure color-based matching
   - May create clusters of similar tiles
   - Fastest processing
   - Good when material diversity is high
 
 - **0.3 (Balanced - Recommended)**:
+
   - Moderate penalty for adjacent similarity
   - Creates natural-looking patterns
   - Good balance between color accuracy and variety
@@ -184,6 +208,7 @@ Enable "Verbose logging" to see when fallback mechanisms activate:
   - May cause suboptimal color matching
 
 **Recommendations**:
+
 - Use 0.0 for maximum color accuracy
 - Use 0.3 for balanced, natural-looking results
 - Increase to 0.5-0.8 for more varied patterns
@@ -200,13 +225,16 @@ This section controls post-placement optimization using simulated annealing algo
 **Default**: Enabled
 
 **Technical Details**:
+
 - Uses simulated annealing algorithm
 - Swaps tiles to minimize total adjacency penalty
 - Runs after initial placement is complete
 - Preserves color accuracy while improving patterns
 
 **Impact**:
+
 - **Enabled (Recommended)**:
+
   - Improves tile placement quality
   - Reduces repetition patterns
   - Adds 10-50% to processing time
@@ -219,6 +247,7 @@ This section controls post-placement optimization using simulated annealing algo
   - Good for quick previews or testing
 
 **Recommendations**:
+
 - Keep enabled for final mosaics
 - Disable for quick testing or previews
 - Required for best results when adjacency penalty weight > 0.0
@@ -232,19 +261,23 @@ This section controls post-placement optimization using simulated annealing algo
 **Range**: 1 to 10,000+ (practical limits depend on patience and quality requirements)
 
 **Technical Details**:
+
 - Each iteration attempts to swap two tiles
 - Uses temperature decay to gradually reduce acceptance of worse swaps
 - Convergence typically occurs within 500-2000 iterations
 - Diminishing returns beyond 2000 iterations for most images
 
 **Impact**:
+
 - **100-500 (Quick Optimization)**:
+
   - Fast optimization with modest improvement
   - Good for testing optimization effects
   - May not reach full convergence
   - Adds 5-15% to processing time
 
 - **1000 (Balanced - Recommended)**:
+
   - Good balance between quality and time
   - Typically achieves 80-90% of possible improvement
   - Adds 15-30% to processing time
@@ -257,6 +290,7 @@ This section controls post-placement optimization using simulated annealing algo
   - Recommended for final, high-quality mosaics
 
 **Recommendations**:
+
 - Start with 1000 for most projects
 - Use 500 for quick testing
 - Increase to 2000 for final mosaics
@@ -273,7 +307,9 @@ This section provides tools for troubleshooting and detailed analysis of the mos
 **Default**: Disabled
 
 **Impact**:
+
 - **Enabled**:
+
   - Provides comprehensive processing information
   - Shows detailed tile selection decisions
   - Includes performance metrics and timing
@@ -287,6 +323,7 @@ This section provides tools for troubleshooting and detailed analysis of the mos
   - Suitable for normal operation
 
 **Log Information When Enabled**:
+
 - Individual tile loading and Lab color calculation
 - Detailed tile selection process for each grid cell
 - Usage tracker status and resets
@@ -295,6 +332,7 @@ This section provides tools for troubleshooting and detailed analysis of the mos
 - Performance timing information
 
 **Recommendations**:
+
 - Enable when troubleshooting generation issues
 - Use for understanding algorithm behavior
 - Enable for performance analysis
@@ -304,7 +342,9 @@ This section provides tools for troubleshooting and detailed analysis of the mos
 ## Advanced Usage Patterns
 
 ### High-Quality Mosaics
+
 For maximum quality results:
+
 ```
 Max Materials: 1000+
 Color Adjustment: 0.5
@@ -315,7 +355,9 @@ Optimization Iterations: 2000
 ```
 
 ### Quick Previews
+
 For fast testing and iteration:
+
 ```
 Max Materials: 200
 Color Adjustment: 0.3
@@ -326,7 +368,9 @@ Optimization Iterations: N/A
 ```
 
 ### Artistic Effects
+
 For stylized, artistic results:
+
 ```
 Max Materials: 300
 Color Adjustment: 0.0
@@ -337,7 +381,9 @@ Optimization Iterations: 1500
 ```
 
 ### Large-Scale Mosaics
+
 For very large mosaics (5000+ tiles):
+
 ```
 Max Materials: 2000
 Color Adjustment: 0.4
@@ -350,18 +396,21 @@ Optimization Iterations: 1000
 ## Performance Considerations
 
 ### Memory Usage
+
 - **Max Materials**: Primary factor in memory usage
 - **Grid Size**: Secondary factor (width × height)
 - **Material Image Size**: Affects loading time and memory
 - **Optimization**: Minimal additional memory usage
 
 ### Processing Time
+
 - **Loading Phase**: Depends on Max Materials and image sizes
 - **Placement Phase**: Depends on grid size and adjacency penalty
 - **Optimization Phase**: Depends on optimization iterations
 - **Saving Phase**: Depends on output image size
 
 ### System Resources
+
 - **CPU**: Intensive during placement and optimization
 - **Memory**: Scales with material count and grid size
 - **Disk**: Minimal usage except for output file
@@ -372,30 +421,35 @@ Optimization Iterations: 1000
 ### Common Issues
 
 **Out of Memory Errors**:
+
 - Reduce Max Materials
 - Use smaller material images
 - Reduce grid size
 - Close other applications
 
 **Slow Processing**:
+
 - Reduce Optimization Iterations
 - Lower Max Materials
 - Disable Optimization for testing
 - Use release builds
 
 **Poor Results**:
+
 - Increase Max Materials for better variety
 - Adjust Color Adjustment for better blending
 - Enable Optimization for better patterns
 - Check material image quality and diversity
 
 **Repetitive Patterns**:
+
 - Increase Adjacency Penalty Weight
 - Enable Optimization
 - Reduce Max Usage Per Image
 - Increase Max Materials
 
 ### Debug Process
+
 1. Enable Verbose Logging
 2. Start with simplified settings
 3. Gradually increase complexity

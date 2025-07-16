@@ -2,9 +2,9 @@
 layout: home
 
 hero:
-  name: "Mosaic Art Generator"
-  text: "High-performance mosaic art generator written in Rust"
-  tagline: "Create stunning mosaic images by intelligently replacing sections of a target image with smaller material images based on perceptual color similarity."
+  name: 'Mosaic Art Generator'
+  text: 'High-performance mosaic art generator written in Rust'
+  tagline: 'Create stunning mosaic images by intelligently replacing sections of a target image with smaller material images based on perceptual color similarity.'
   image:
     src: /hero-image.png
     alt: Mosaic Art Generator
@@ -88,37 +88,41 @@ cargo build --release
 ## Why Choose Mosaic Art Generator?
 
 ### 🔬 **Advanced Algorithms**
+
 - Uses perceptually uniform Lab color space for accurate color matching
 - k-d tree data structure provides O(log n) search performance
 - Simulated annealing optimization for best tile placement
 
 ### 🚀 **Performance Optimized**
+
 - Parallel processing with Rayon for multi-core utilization
 - SIMD-optimized image resizing via fast_image_resize
 - Efficient memory usage with Arc&lt;Tile&gt; for shared immutable data
 
 ### 🎨 **Professional Quality**
+
 - Multi-factor scoring system considering color, usage, and adjacency
 - Advanced color adjustment using HSV transformations
 - Similarity database with JSON persistence for faster subsequent runs
 
 ### 🛠️ **Developer Friendly**
+
 - Comprehensive CLI with 20+ configuration options
 - Extensive test coverage (111+ tests)
 - Clean, modular architecture with 8 specialized modules
 
 ## Key Features
 
-| Feature | Description |
-|---------|-------------|
-| **Perceptual Color Matching** | Uses Lab color space with k-d tree for O(log n) nearest neighbor search |
-| **Smart Placement** | Multi-factor scoring considering color distance, usage limits, and adjacency penalties |
-| **Parallel Processing** | Automatic parallelization with Rayon for multi-core performance |
-| **Color Adjustment** | HSV-based color adjustment for better matching with target regions |
-| **Optimization Engine** | Simulated annealing algorithm for iterative tile placement improvement |
-| **Real-time Visualization** | ASCII grid display and progress tracking with ETA |
-| **Similarity Database** | Pre-computed similarity matrix with JSON persistence |
-| **Aspect Ratio Matching** | Intelligent filtering with fallback strategies |
+| Feature                       | Description                                                                            |
+| ----------------------------- | -------------------------------------------------------------------------------------- |
+| **Perceptual Color Matching** | Uses Lab color space with k-d tree for O(log n) nearest neighbor search                |
+| **Smart Placement**           | Multi-factor scoring considering color distance, usage limits, and adjacency penalties |
+| **Parallel Processing**       | Automatic parallelization with Rayon for multi-core performance                        |
+| **Color Adjustment**          | HSV-based color adjustment for better matching with target regions                     |
+| **Optimization Engine**       | Simulated annealing algorithm for iterative tile placement improvement                 |
+| **Real-time Visualization**   | ASCII grid display and progress tracking with ETA                                      |
+| **Similarity Database**       | Pre-computed similarity matrix with JSON persistence                                   |
+| **Aspect Ratio Matching**     | Intelligent filtering with fallback strategies                                         |
 
 ## Architecture Overview
 

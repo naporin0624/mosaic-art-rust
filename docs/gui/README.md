@@ -66,15 +66,15 @@ cargo run --bin mosaic-gui
 
 ## Key Differences from CLI
 
-| Feature | CLI | GUI |
-|---------|-----|-----|
-| **File Selection** | Manual path entry | Visual file browser |
-| **Grid Calculation** | Manual calculation | Auto-calculation with preview |
-| **Parameter Input** | Command arguments | Interactive forms |
-| **Progress Tracking** | Terminal output | Visual progress indicators |
-| **Theme Support** | Terminal dependent | Built-in light/dark themes |
-| **Error Handling** | Exit codes | User-friendly dialogs |
-| **Automation** | Scriptable | Interactive only |
+| Feature               | CLI                | GUI                           |
+| --------------------- | ------------------ | ----------------------------- |
+| **File Selection**    | Manual path entry  | Visual file browser           |
+| **Grid Calculation**  | Manual calculation | Auto-calculation with preview |
+| **Parameter Input**   | Command arguments  | Interactive forms             |
+| **Progress Tracking** | Terminal output    | Visual progress indicators    |
+| **Theme Support**     | Terminal dependent | Built-in light/dark themes    |
+| **Error Handling**    | Exit codes         | User-friendly dialogs         |
+| **Automation**        | Scriptable         | Interactive only              |
 
 ## Architecture Highlights
 
@@ -175,17 +175,20 @@ cargo run --bin mosaic-gui --release
 ### Common Issues
 
 **GUI doesn't start on Linux:**
+
 ```bash
 # Install required system dependencies
 sudo apt-get install libgtk-3-dev libxdo-dev
 ```
 
 **Theme not applying correctly:**
+
 - Restart the application
 - Check system theme settings
 - Try toggling between light/dark modes
 
 **File dialogs not appearing:**
+
 - Ensure proper permissions for file system access
 - Check platform-specific file dialog dependencies
 

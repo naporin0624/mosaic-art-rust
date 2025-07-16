@@ -11,24 +11,28 @@ The GUI application offers a user-friendly interface for creating stunning mosai
 ## Key Features
 
 ### 🖥️ Modern Interface
+
 - **Cross-platform**: Native support for Windows, macOS, and Linux
 - **No terminal window**: Clean desktop application experience
 - **Theme support**: Built-in light and dark themes
 - **Real-time feedback**: Visual progress indicators and status updates
 
 ### 📁 File Management
+
 - **Native file dialogs**: Platform-specific file browsers
 - **Drag and drop support**: Easy file selection (coming soon)
 - **Path validation**: Real-time validation of file paths
 - **Recent files**: Quick access to recently used files (coming soon)
 
 ### ⚙️ Advanced Settings
+
 - **Collapsible interface**: Advanced settings hidden by default to reduce clutter
 - **Organized sections**: Settings grouped by category (Configuration, Optimization, Debugging)
 - **Real-time validation**: Input validation with immediate feedback
 - **Tooltips**: Helpful descriptions for each setting (coming soon)
 
 ### 🎯 Feature Parity
+
 - **Complete CLI equivalence**: All command-line options available in GUI
 - **Grid auto-calculation**: Intelligent grid dimension calculation
 - **Performance optimization**: Full access to all optimization parameters
@@ -59,16 +63,19 @@ cargo build --bin mosaic-gui --release
 ### First Time Setup
 
 1. **Launch the application**
+
    ```bash
    ./target/release/mosaic-gui
    ```
 
 2. **Select your files**
+
    - Click "Browse" next to "Target Image" to select your main image
    - Click "Browse" next to "Material Directory" to select your tile images folder
    - Click "Browse" next to "Output Path" to choose where to save the result
 
 3. **Configure settings**
+
    - Use auto-calculate for grid dimensions or set manually
    - Expand "Advanced Settings" to access optimization parameters
    - Toggle "Verbose logging" for detailed debug output
@@ -81,35 +88,45 @@ cargo build --bin mosaic-gui --release
 ## Interface Sections
 
 ### File Selection Panel
+
 The top section allows you to select all necessary files for mosaic generation:
+
 - **Target Image**: The main image that will be converted into a mosaic
 - **Material Directory**: Folder containing images to use as mosaic tiles
 - **Output Path**: Where the final mosaic will be saved
 
 ### Grid Settings Panel
+
 Configure how your image will be divided into tiles:
+
 - **Auto-calculate**: Automatically determine optimal grid dimensions
 - **Manual mode**: Set exact width and height for the grid
 - **Total tiles**: Used with auto-calculate to determine grid size
 
 ### Advanced Settings Panel
+
 A collapsible section containing expert-level configuration options:
 
 #### Configuration Section
+
 - **Max materials**: Limit the number of tile images used
 - **Color adjustment**: Fine-tune color matching (0.0-1.0)
 - **Max usage per image**: Prevent overuse of individual tiles
 - **Adjacency penalty weight**: Avoid similar tiles being placed next to each other
 
 #### Optimization Section
+
 - **Enable optimization**: Use simulated annealing to improve tile placement
 - **Optimization iterations**: Number of optimization steps to perform
 
 #### Debugging Section
+
 - **Verbose logging**: Enable detailed debug output
 
 ### Progress and Status
+
 Real-time feedback during mosaic generation:
+
 - **Progress bar**: Visual indicator of completion percentage
 - **Status messages**: Current processing step
 - **Generation log**: Detailed log of all operations
@@ -117,16 +134,19 @@ Real-time feedback during mosaic generation:
 ## Platform-Specific Features
 
 ### Windows
+
 - No console window appears (clean desktop application)
 - Native Windows file dialogs
 - Windows 10+ recommended
 
 ### macOS
+
 - Native Cocoa file dialogs
 - Proper menu bar integration
 - macOS 10.15+ support
 
 ### Linux
+
 - GTK-based file dialogs
 - Wayland and X11 support
 - Auto-dependency handling in CI
@@ -134,6 +154,7 @@ Real-time feedback during mosaic generation:
 ## Performance Considerations
 
 The GUI adds minimal overhead to core processing:
+
 - **Memory efficient**: Shared tile data with Arc\<Tile>
 - **Non-blocking**: Async file operations prevent UI freezing
 - **Optimized rendering**: Efficient re-rendering with iced's virtual DOM
@@ -150,14 +171,14 @@ The GUI adds minimal overhead to core processing:
 
 ## Comparison with CLI
 
-| Feature | GUI | CLI |
-|---------|-----|-----|
-| **Ease of use** | ✅ Point-and-click interface | ⚠️ Command-line knowledge required |
-| **File selection** | ✅ Native file dialogs | ⚠️ Manual path entry |
-| **Progress tracking** | ✅ Visual progress bar | ⚠️ Text output only |
-| **Settings management** | ✅ Interactive forms | ⚠️ Command arguments |
-| **Automation** | ❌ Interactive only | ✅ Scriptable |
-| **Batch processing** | ❌ Single mosaic at a time | ✅ Script multiple mosaics |
-| **Resource usage** | ⚠️ Slightly higher RAM | ✅ Minimal overhead |
+| Feature                 | GUI                          | CLI                                |
+| ----------------------- | ---------------------------- | ---------------------------------- |
+| **Ease of use**         | ✅ Point-and-click interface | ⚠️ Command-line knowledge required |
+| **File selection**      | ✅ Native file dialogs       | ⚠️ Manual path entry               |
+| **Progress tracking**   | ✅ Visual progress bar       | ⚠️ Text output only                |
+| **Settings management** | ✅ Interactive forms         | ⚠️ Command arguments               |
+| **Automation**          | ❌ Interactive only          | ✅ Scriptable                      |
+| **Batch processing**    | ❌ Single mosaic at a time   | ✅ Script multiple mosaics         |
+| **Resource usage**      | ⚠️ Slightly higher RAM       | ✅ Minimal overhead                |
 
 Both interfaces provide identical mosaic generation capabilities - choose based on your workflow preferences and automation needs.

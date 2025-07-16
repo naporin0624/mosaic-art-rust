@@ -5,18 +5,21 @@ This guide helps you diagnose and resolve common issues when using the GUI appli
 ## Quick Diagnosis
 
 ### Application Won't Start
+
 1. **Check system requirements**: Ensure your platform is supported
 2. **Verify dependencies**: Install required system libraries
 3. **Try debug mode**: Run with `RUST_LOG=debug` for detailed output
 4. **Check permissions**: Ensure the executable has proper permissions
 
 ### Generation Fails
+
 1. **Verify file paths**: Ensure all selected files and directories exist
 2. **Check material directory**: Confirm it contains supported image files
 3. **Enable verbose logging**: Get detailed error information
 4. **Try simpler settings**: Reduce complexity to isolate issues
 
 ### Poor Performance
+
 1. **Use release builds**: Debug builds are 3-5x slower
 2. **Reduce settings**: Lower tile counts and material limits
 3. **Free system resources**: Close other applications
@@ -29,6 +32,7 @@ This guide helps you diagnose and resolve common issues when using the GUI appli
 #### GUI Application Won't Launch
 
 **Symptoms**:
+
 - Application fails to start
 - Error message about missing libraries
 - Immediate crash on startup
@@ -36,6 +40,7 @@ This guide helps you diagnose and resolve common issues when using the GUI appli
 **Solutions**:
 
 **Linux**:
+
 ```bash
 # Install required GTK dependencies
 sudo apt-get install libgtk-3-dev libxdo-dev
@@ -48,6 +53,7 @@ sudo pacman -S gtk3 xdotool
 ```
 
 **macOS**:
+
 ```bash
 # Install Xcode command line tools
 xcode-select --install
@@ -57,6 +63,7 @@ sw_vers
 ```
 
 **Windows**:
+
 - Ensure Windows 10 or later
 - Try running as administrator
 - Check Windows Defender/antivirus settings
@@ -64,11 +71,13 @@ sw_vers
 #### Build Errors
 
 **Symptoms**:
+
 - `cargo build` fails with compilation errors
 - Missing dependencies during build
 - Platform-specific build issues
 
 **Solutions**:
+
 ```bash
 # Update Rust toolchain
 rustup update
@@ -88,11 +97,13 @@ cargo check --bin mosaic-gui
 #### File Dialog Doesn't Appear
 
 **Symptoms**:
+
 - Clicking "Browse" buttons has no effect
 - File dialogs appear but are empty
 - Cannot select files or directories
 
 **Solutions**:
+
 1. **Check permissions**: Ensure the application has file system access
 2. **Try different directories**: Test with directories you own
 3. **Restart application**: Sometimes helps with dialog issues
@@ -101,11 +112,13 @@ cargo check --bin mosaic-gui
 #### Invalid File Path Errors
 
 **Symptoms**:
+
 - Error messages about invalid file paths
 - Files selected but not recognized
 - Directory selection fails
 
 **Solutions**:
+
 1. **Verify file existence**: Ensure files haven't been moved or deleted
 2. **Check file permissions**: Ensure files are readable
 3. **Avoid special characters**: Use simple filenames without spaces or symbols
@@ -116,11 +129,13 @@ cargo check --bin mosaic-gui
 #### No Material Images Found
 
 **Symptoms**:
+
 - Error: "No material images found in the specified directory"
 - Generation fails immediately
 - Empty material directory warnings
 
 **Solutions**:
+
 1. **Verify file formats**: Ensure images are PNG, JPG, or JPEG
 2. **Check directory contents**: Confirm directory isn't empty
 3. **File extensions**: Ensure proper file extensions (.png, .jpg, .jpeg)
@@ -129,11 +144,13 @@ cargo check --bin mosaic-gui
 #### Material Loading Errors
 
 **Symptoms**:
+
 - Some materials fail to load
 - Warnings about corrupted images
 - Inconsistent material counts
 
 **Solutions**:
+
 1. **Check image integrity**: Verify images aren't corrupted
 2. **Consistent formats**: Use consistent image formats
 3. **File size limits**: Very large images may cause issues
@@ -144,11 +161,13 @@ cargo check --bin mosaic-gui
 #### Out of Memory Errors
 
 **Symptoms**:
+
 - Application crashes during generation
 - System becomes unresponsive
 - "Out of memory" error messages
 
 **Solutions**:
+
 1. **Reduce tile count**: Use fewer total tiles
 2. **Limit materials**: Reduce max materials setting
 3. **Smaller images**: Use lower resolution material images
@@ -158,17 +177,20 @@ cargo check --bin mosaic-gui
 #### Slow Processing
 
 **Symptoms**:
+
 - Generation takes extremely long
 - Progress bar moves very slowly
 - System becomes sluggish
 
 **Solutions**:
-1. **Use release builds**: 
+
+1. **Use release builds**:
    ```bash
    cargo build --bin mosaic-gui --release
    ./target/release/mosaic-gui
    ```
 2. **Reduce settings**:
+
    - Lower total tiles (500-1000)
    - Reduce max materials (200-500)
    - Disable optimization for testing
@@ -182,11 +204,13 @@ cargo check --bin mosaic-gui
 #### Generation Hangs
 
 **Symptoms**:
+
 - Progress bar stops updating
 - Application becomes unresponsive
 - No error messages or logs
 
 **Solutions**:
+
 1. **Enable verbose logging**: Get detailed progress information
 2. **Check system resources**: Monitor CPU and memory usage
 3. **Restart application**: Force close and restart
@@ -197,11 +221,13 @@ cargo check --bin mosaic-gui
 #### Poor Mosaic Quality
 
 **Symptoms**:
+
 - Blurry or pixelated results
 - Colors don't match target image
 - Obvious repetition patterns
 
 **Solutions**:
+
 1. **Increase tile count**: Use more tiles for better detail
 2. **Improve materials**: Use higher quality, more diverse images
 3. **Adjust color settings**: Increase color adjustment strength
@@ -210,11 +236,13 @@ cargo check --bin mosaic-gui
 #### Repetitive Patterns
 
 **Symptoms**:
+
 - Same tiles appear frequently
 - Obvious clustering of similar tiles
 - Unnatural-looking patterns
 
 **Solutions**:
+
 1. **Increase material variety**: Use more diverse material images
 2. **Adjust usage limits**: Reduce max usage per image
 3. **Enable adjacency penalty**: Increase adjacency penalty weight
@@ -223,11 +251,13 @@ cargo check --bin mosaic-gui
 #### Color Mismatches
 
 **Symptoms**:
+
 - Tiles don't match target colors well
 - Mosaic looks too different from original
 - Artificial-looking color combinations
 
 **Solutions**:
+
 1. **Increase color adjustment**: Use higher color adjustment values
 2. **Better material selection**: Use materials with colors similar to target
 3. **More materials**: Increase max materials for better matching
@@ -238,11 +268,13 @@ cargo check --bin mosaic-gui
 #### Theme Problems
 
 **Symptoms**:
+
 - Theme doesn't switch properly
 - Colors appear wrong
 - Text hard to read
 
 **Solutions**:
+
 1. **Restart application**: Theme changes may require restart
 2. **Check system theme**: Ensure system theme is compatible
 3. **Try different theme**: Switch between light and dark modes
@@ -251,11 +283,13 @@ cargo check --bin mosaic-gui
 #### Log Display Issues
 
 **Symptoms**:
+
 - Logs don't appear
 - Log text is truncated
 - Cannot scroll through logs
 
 **Solutions**:
+
 1. **Enable verbose logging**: Ensure logging is enabled
 2. **Scroll manually**: Use scrollbar to navigate logs
 3. **Resize window**: Make window larger to see more logs
@@ -285,22 +319,26 @@ set RUST_LOG=debug
 The GUI includes a comprehensive fallback system that ensures no grid cells remain empty. When **Verbose logging** is enabled, you can monitor this system's activity:
 
 **Normal Operation**:
+
 - No special messages appear when tiles are placed normally
 - Standard progress updates show percentage completion
 
 **Fallback Activation**:
+
 - "⚠️ Using fallback tile selection with reset usage tracker..."
   - Indicates usage limits have been reached
   - System resets usage tracker to allow tile reuse
   - Maintains adjacency constraints for quality
 
 **Final Fallback**:
+
 - "⚠️ Using final fallback - best color match without adjacency constraints..."
   - Rare message indicating all constraints prevented placement
   - System ignores adjacency to guarantee tile placement
   - Ensures no empty cells in final mosaic
 
 **Interpreting Fallback Messages**:
+
 - **Few fallback messages** (< 1% of tiles): Normal operation
 - **Many fallback messages** (> 10% of tiles): Consider adjusting settings:
   - Increase "Max usage per image" value
@@ -309,6 +347,7 @@ The GUI includes a comprehensive fallback system that ensures no grid cells rema
 - **Frequent final fallback**: Indicates constraint conflicts or insufficient materials
 
 **Troubleshooting with Fallback Logs**:
+
 1. Enable verbose logging in Advanced Settings
 2. Monitor generation log for fallback messages
 3. Adjust settings based on fallback frequency
@@ -319,12 +358,14 @@ The GUI includes a comprehensive fallback system that ensures no grid cells rema
 When reporting issues, include:
 
 1. **System information**:
+
    - Operating system and version
    - Rust version (`rustc --version`)
    - Application version
    - System specifications (RAM, CPU)
 
 2. **Error details**:
+
    - Exact error messages
    - Steps to reproduce
    - Debug logs (with verbose logging enabled)
@@ -366,7 +407,8 @@ iostat -x 1
 #### macOS-Specific Issues
 
 **Issue**: "App is damaged and can't be opened"
-**Solution**: 
+**Solution**:
+
 ```bash
 # Remove quarantine attribute
 xattr -d com.apple.quarantine mosaic-gui
@@ -379,6 +421,7 @@ xattr -d com.apple.quarantine mosaic-gui
 
 **Issue**: GTK errors on startup
 **Solution**:
+
 ```bash
 # Install GTK development packages
 sudo apt-get install libgtk-3-dev
@@ -389,6 +432,7 @@ export GDK_BACKEND=wayland
 
 **Issue**: Font rendering issues
 **Solution**:
+
 ```bash
 # Install font packages
 sudo apt-get install fonts-dejavu-core fonts-freefont-ttf

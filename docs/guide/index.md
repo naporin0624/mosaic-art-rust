@@ -16,6 +16,7 @@ The Mosaic Art Generator provides a powerful CLI with over 20 configuration opti
 ## Common Workflows
 
 ### Quick Mosaic Generation
+
 ```bash
 ./target/release/mosaic-rust \
   --target photo.jpg \
@@ -24,6 +25,7 @@ The Mosaic Art Generator provides a powerful CLI with over 20 configuration opti
 ```
 
 ### High-Quality Production
+
 ```bash
 ./target/release/mosaic-rust \
   --target photo.jpg \
@@ -36,6 +38,7 @@ The Mosaic Art Generator provides a powerful CLI with over 20 configuration opti
 ```
 
 ### Performance-Optimized
+
 ```bash
 ./target/release/mosaic-rust \
   --target photo.jpg \

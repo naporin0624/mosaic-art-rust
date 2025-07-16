@@ -51,14 +51,14 @@ pub struct MosaicApp {
     target_path: String,
     material_path: String,
     output_path: String,
-    
+
     // Application settings
     settings: MosaicSettings,
-    
+
     // UI state
     theme: Theme,
     pending_selection: Option<FileSelectionType>,
-    
+
     // Input field states (for real-time validation)
     grid_w_input: String,
     grid_h_input: String,
@@ -77,13 +77,13 @@ pub enum Message {
     TargetPathChanged(String),
     MaterialPathChanged(String),
     OutputPathChanged(String),
-    
+
     // File dialog events
     OpenTargetFile,
     OpenMaterialFolder,
     SaveOutputFile,
     FileSelected(Option<PathBuf>),
-    
+
     // Settings events
     GridWidthChanged(String),
     GridHeightChanged(String),
@@ -92,7 +92,7 @@ pub enum Message {
     MaxMaterialsChanged(String),
     ColorAdjustmentChanged(String),
     OptimizationToggled(bool),
-    
+
     // Action events
     CalculateGrid,
     GenerateMosaic,
@@ -112,7 +112,7 @@ fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
                 let aspect_ratio = 16.0 / 9.0;
                 let w = ((total_tiles as f32 * aspect_ratio).sqrt()).round() as u32;
                 let h = (total_tiles / w).max(1);
-                
+
                 self.settings.grid_w = w;
                 self.settings.grid_h = h;
                 self.grid_w_input = w.to_string();
@@ -139,7 +139,7 @@ fn view(&self) -> Element<'_, Self::Message> {
         controls
     ]
     .padding(20);
-    
+
     content.into()
 }
 ```
@@ -397,13 +397,13 @@ Tests use temporary paths and mock data:
 #[test]
 fn test_path_handling() {
     use std::path::PathBuf;
-    
+
     let test_paths = vec![
         "/home/user/image.png",
         "C:\\Users\\User\\image.jpg",
         "relative/path/image.jpeg",
     ];
-    
+
     for path_str in test_paths {
         let path = PathBuf::from(path_str);
         let lossy_string = path.to_string_lossy().to_string();
@@ -536,17 +536,20 @@ self.find_best_tile_simple(&target_lab_color, &material_colors, &kdtree, verbose
 #### Algorithm Details
 
 **Stage 1 - Primary Selection**:
+
 - Uses k-d tree for O(log n) nearest neighbor search in Lab color space
 - Applies usage limits through `UsageTracker`
 - Calculates adjacency penalties using `AdjacencyPenaltyCalculator`
 - Selects best tile considering all constraints
 
 **Stage 2 - Fallback Selection**:
+
 - Resets usage tracker to allow tile reuse
 - Maintains adjacency constraints to prevent clustering
 - Provides second chance for tiles that were previously exhausted
 
 **Stage 3 - Final Fallback**:
+
 - Ignores all constraints except color matching
 - Guarantees a tile is selected for every grid position
 - Uses simple Euclidean distance in Lab color space
@@ -554,6 +557,7 @@ self.find_best_tile_simple(&target_lab_color, &material_colors, &kdtree, verbose
 #### Performance Impact
 
 The fallback system has minimal performance overhead:
+
 - **Primary path**: No additional cost for normal operation
 - **Fallback triggers**: Only when necessary, affecting ~1-5% of tiles typically
 - **Final fallback**: Extremely rare, used only in edge cases
@@ -562,6 +566,7 @@ The fallback system has minimal performance overhead:
 #### Debugging and Monitoring
 
 The system provides detailed logging when verbose mode is enabled:
+
 - Tracks fallback activation frequency
 - Reports usage tracker resets
 - Logs adjacency constraint violations

@@ -17,17 +17,19 @@ The GUI is organized into logical sections that flow from top to bottom:
 ## File Selection Panel
 
 ### Target Image Selection
+
 The target image is the main image that will be converted into a mosaic.
 
 - **Input Field**: Shows the currently selected file path
 - **Browse Button**: Opens native file dialog
 - **Supported Formats**: PNG, JPG, JPEG
-- **Recommendations**: 
+- **Recommendations**:
   - Use high-resolution images for best results
   - Ensure good contrast and clear details
   - Square or rectangular images work well
 
 ### Material Directory Selection
+
 The material directory contains all images that will be used as mosaic tiles.
 
 - **Input Field**: Shows the currently selected directory path
@@ -39,6 +41,7 @@ The material directory contains all images that will be used as mosaic tiles.
   - Consistent image quality across all tiles
 
 ### Output Path Selection
+
 Specifies where the final mosaic will be saved.
 
 - **Input Field**: Shows the complete output file path
@@ -52,14 +55,17 @@ Specifies where the final mosaic will be saved.
 ## Grid Settings Panel
 
 ### Auto-Calculate Mode
+
 When enabled, the application automatically calculates optimal grid dimensions based on the total number of tiles.
 
 #### Auto-Calculate Checkbox
+
 - **Checked**: Enables automatic grid calculation
 - **Unchecked**: Allows manual grid dimension entry
 - **Default**: Enabled for user convenience
 
 #### Total Tiles Input
+
 - **Purpose**: Specifies how many tiles to use in the mosaic
 - **Range**: 100-10000+ (practical limits depend on system resources)
 - **Recommendations**:
@@ -69,19 +75,23 @@ When enabled, the application automatically calculates optimal grid dimensions b
   - **5000+**: Maximum detail, requires powerful hardware
 
 #### Calculate Grid Button
+
 - **Function**: Computes grid dimensions based on total tiles
 - **Algorithm**: Uses 16:9 aspect ratio assumption
 - **Formula**: Width = √(total_tiles × 16/9), Height = total_tiles ÷ width
 
 ### Manual Grid Mode
+
 When auto-calculate is disabled, you can set exact grid dimensions.
 
 #### Grid Width
+
 - **Purpose**: Number of tiles horizontally
 - **Range**: 1-1000+ (practical limits apply)
 - **Impact**: More columns = finer horizontal detail
 
 #### Grid Height
+
 - **Purpose**: Number of tiles vertically
 - **Range**: 1-1000+ (practical limits apply)
 - **Impact**: More rows = finer vertical detail
@@ -91,23 +101,27 @@ When auto-calculate is disabled, you can set exact grid dimensions.
 The advanced settings panel is **collapsible** and contains expert-level configuration options organized into logical sections.
 
 ### Panel Header
+
 - **Expand/Collapse Button**: Click the ► (collapsed) or ▼ (expanded) arrow to toggle visibility
 - **Default State**: Collapsed to reduce interface complexity
 - **Purpose**: Hides advanced options that most users don't need to modify
 
 ### Configuration Section
+
 Settings that affect how tiles are selected and processed.
 
 #### Max Materials
+
 - **Purpose**: Limits the number of material images to load
 - **Default**: 500
 - **Range**: 10-10000+
-- **Impact**: 
+- **Impact**:
   - **Higher values**: More tile variety, longer loading time
   - **Lower values**: Faster loading, less variety
 - **Recommendation**: Match to your material collection size
 
 #### Color Adjustment (0.0-1.0)
+
 - **Purpose**: Fine-tunes color matching between target and tiles
 - **Default**: 0.3
 - **Range**: 0.0 (no adjustment) to 1.0 (maximum adjustment)
@@ -117,6 +131,7 @@ Settings that affect how tiles are selected and processed.
   - **1.0**: Heavy adjustment, may lose color accuracy
 
 #### Max Usage Per Image
+
 - **Purpose**: Prevents overuse of individual tile images
 - **Default**: 3
 - **Range**: 1-100+
@@ -126,6 +141,7 @@ Settings that affect how tiles are selected and processed.
   - **10+**: Allows frequent reuse of good matches
 
 #### Adjacency Penalty Weight (0.0-1.0)
+
 - **Purpose**: Prevents similar tiles from being placed next to each other
 - **Default**: 0.3
 - **Range**: 0.0 (no penalty) to 1.0 (maximum penalty)
@@ -135,15 +151,18 @@ Settings that affect how tiles are selected and processed.
   - **1.0**: Strong penalty (may sacrifice color accuracy)
 
 ### Optimization Section
+
 Settings for post-placement optimization using simulated annealing.
 
 #### Enable Optimization Checkbox
+
 - **Purpose**: Toggles post-placement optimization
 - **Default**: Enabled
 - **Impact**: Improves tile placement quality at the cost of processing time
 - **Recommendation**: Keep enabled unless time is critical
 
 #### Optimization Iterations
+
 - **Purpose**: Number of optimization steps to perform
 - **Default**: 1000
 - **Range**: 1-10000+
@@ -153,9 +172,11 @@ Settings for post-placement optimization using simulated annealing.
   - **2000+**: Thorough optimization, longer processing time
 
 ### Debugging Section
+
 Options for troubleshooting and detailed analysis.
 
 #### Verbose Logging Checkbox
+
 - **Purpose**: Enables detailed debug output
 - **Default**: Disabled
 - **Impact**: Provides comprehensive processing information
@@ -168,30 +189,36 @@ Options for troubleshooting and detailed analysis.
 ## Status and Progress Section
 
 ### Processing States
+
 The interface shows different states during mosaic generation:
 
 #### Idle State
+
 - **Appearance**: No progress indicators visible
 - **Status**: Ready to generate mosaic
 - **Actions**: All controls enabled
 
 #### Processing State
+
 - **Progress Bar**: Shows completion percentage (0-100%)
 - **Step Description**: Current processing step
 - **Status Text**: Detailed operation information
 - **Actions**: Generate button disabled during processing
 
 #### Completed State
+
 - **Appearance**: "✅ Completed" message
 - **Status**: Mosaic generation successful
 - **Actions**: All controls re-enabled
 
 #### Error State
+
 - **Appearance**: "❌ Error: [description]" message
 - **Status**: Generation failed
 - **Actions**: All controls enabled, check logs for details
 
 ### Progress Indicators
+
 - **Progress Bar**: Visual representation of completion
 - **Percentage**: Numeric completion percentage
 - **Step Messages**: Current processing operation
@@ -200,6 +227,7 @@ The interface shows different states during mosaic generation:
 ## Action Buttons
 
 ### Generate Mosaic Button
+
 - **Primary Function**: Starts mosaic generation process
 - **States**:
   - **"Generate Mosaic"**: Ready to start
@@ -208,6 +236,7 @@ The interface shows different states during mosaic generation:
 - **Validation**: Automatic input validation before starting
 
 ### Toggle Theme Button
+
 - **Function**: Switches between light and dark themes
 - **States**: Light Theme ↔ Dark Theme
 - **Persistence**: Theme preference remembered during session
@@ -216,12 +245,14 @@ The interface shows different states during mosaic generation:
 ## Generation Log
 
 ### Log Display
+
 - **Location**: Bottom of the interface
 - **Visibility**: Appears automatically when generation starts
 - **Capacity**: Shows last 50 log messages
 - **Scrolling**: Automatic scrolling to newest messages
 
 ### Log Types
+
 - **🚀 Status**: General progress updates
 - **📁 File**: File operations and paths
 - **🔧 Configuration**: Settings and parameters
@@ -231,6 +262,7 @@ The interface shows different states during mosaic generation:
 - **🔍 Debug**: Detailed debug information (when verbose logging enabled)
 
 ### Log Navigation
+
 - **Auto-scroll**: Newest messages appear at the bottom
 - **Manual scroll**: Use scrollbar to review previous messages
 - **Text selection**: Click and drag to select log text
@@ -239,18 +271,21 @@ The interface shows different states during mosaic generation:
 ## Keyboard Shortcuts
 
 ### Navigation
+
 - **Tab**: Move between input fields
 - **Shift+Tab**: Move backwards between fields
 - **Enter**: Activate focused button
 - **Space**: Toggle focused checkbox
 
 ### File Operations
+
 - **Ctrl+O**: Open target file (Windows/Linux)
 - **Cmd+O**: Open target file (macOS)
 - **Ctrl+S**: Save output file (Windows/Linux)
 - **Cmd+S**: Save output file (macOS)
 
 ### Application
+
 - **Ctrl+T**: Toggle theme (Windows/Linux)
 - **Cmd+T**: Toggle theme (macOS)
 - **F1**: Show help (planned)
@@ -260,12 +295,14 @@ The interface shows different states during mosaic generation:
 ## Accessibility Features
 
 ### Visual Accessibility
+
 - **High Contrast**: Dark theme for better visibility
 - **Clear Typography**: Readable font sizes and spacing
 - **Color Coding**: Consistent color scheme for different message types
 - **Visual Feedback**: Clear indication of interactive elements
 
 ### Keyboard Accessibility
+
 - **Tab Navigation**: All controls accessible via keyboard
 - **Focus Indicators**: Clear visual focus indicators
 - **Keyboard Shortcuts**: Common operations accessible via keyboard
@@ -274,12 +311,14 @@ The interface shows different states during mosaic generation:
 ## Performance Monitoring
 
 ### Real-time Feedback
+
 - **Progress Updates**: Regular progress percentage updates
 - **Step Information**: Current processing operation
 - **Time Tracking**: Elapsed time display
 - **Memory Usage**: Visual cues for resource usage
 
 ### System Resources
+
 - **CPU Usage**: Processing intensity varies by operation
 - **Memory Usage**: Increases with tile count and image size
 - **Disk Usage**: Output file size depends on mosaic dimensions
@@ -294,11 +333,13 @@ The GUI application includes a comprehensive fallback mechanism (added 2025-01-1
 #### How It Works
 
 1. **Primary Selection Stage**:
+
    - Uses the k-d tree search with all constraints enabled
    - Respects usage limits and adjacency penalties
    - Finds the best color-matching tile within all constraints
 
 2. **Fallback Selection Stage**:
+
    - Activates when primary selection fails due to usage limits
    - Resets the usage tracker to allow tiles to be reused
    - Maintains adjacency constraints to prevent clustering
@@ -323,6 +364,7 @@ These log entries help you understand when and why the fallback system is being 
 #### Impact on Results
 
 The fallback system ensures:
+
 - **No empty cells**: Every position in the mosaic will have a tile
 - **Graceful degradation**: Quality is maintained as much as possible
 - **Predictable output**: No surprises with black squares in your mosaic
@@ -331,12 +373,14 @@ The fallback system ensures:
 ## Tips for Efficient Usage
 
 ### Interface Organization
+
 1. **Start with file selection**: Always begin with proper file selection
 2. **Use auto-calculate**: Simplifies grid configuration for beginners
 3. **Expand advanced settings**: Only when default settings aren't sufficient
 4. **Monitor logs**: Check for warnings or errors during processing
 
 ### Workflow Optimization
+
 1. **Prepare materials**: Organize material images before starting
 2. **Test with small settings**: Use fewer tiles for initial testing
 3. **Save presets**: Remember successful settings for future use
