@@ -2115,6 +2115,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(tarpaulin))]
     fn test_large_image_dimensions() {
         let tempdir = create_test_material_dir().unwrap();
         let similarity_db_path = tempdir.path().join("test_similarity.json");
