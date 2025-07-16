@@ -126,7 +126,22 @@ This example demonstrates the generator's capabilities using a birthday artwork 
 
 This high-resolution mosaic was created for the [Ristill Birthday 2025](https://ristill.club/2025) website, demonstrating the generator's ability to handle complex artwork with vibrant colors and intricate details. The 206×116 grid creates a mosaic with 23,896 individual tiles, each carefully selected from a collection of 2,849 material images.
 
-## Command Line Options
+## Documentation
+
+### Comprehensive Documentation
+
+For detailed information about using the mosaic generator:
+
+- **[API Documentation](docs/api/)** - Detailed API reference covering all modules and functions
+  - [Core API Reference](docs/api/core.md) - Core traits, structs, and functions
+  - [Module API Reference](docs/api/modules.md) - Complete module-specific documentation
+- **[CLI Documentation](docs/cli/)** - Complete command-line interface guide
+  - [CLI Reference](docs/cli/reference.md) - Comprehensive parameter documentation
+  - [CLI Examples & Tutorials](docs/cli/examples.md) - Practical usage examples and tutorials
+
+### Quick Reference: Command Line Options
+
+For a quick overview of the main options:
 
 ### Required Arguments
 
@@ -136,48 +151,19 @@ This high-resolution mosaic was created for the [Ristill Birthday 2025](https://
 | `--material-src` | `-m`  | Directory containing material images |
 | `--output`       | `-o`  | Output mosaic image path             |
 
-### Grid Configuration
-
-| Option     | Description                  | Default |
-| ---------- | ---------------------------- | ------- |
-| `--grid-w` | Number of tiles horizontally | 50      |
-| `--grid-h` | Number of tiles vertically   | 28      |
-
-### Material Selection
-
-| Option               | Description                         | Default |
-| -------------------- | ----------------------------------- | ------- |
-| `--max-materials`    | Maximum number of materials to load | 500     |
-| `--aspect-tolerance` | Aspect ratio tolerance (0.1 = ±10%) | 0.1     |
-
-### Placement Constraints
+### Key Configuration Options
 
 | Option                       | Description                             | Default |
 | ---------------------------- | --------------------------------------- | ------- |
+| `--grid-w`                   | Number of tiles horizontally            | 50      |
+| `--grid-h`                   | Number of tiles vertically              | 28      |
+| `--max-materials`            | Maximum number of materials to load     | 500     |
 | `--max-usage-per-image`      | Maximum times each material can be used | 3       |
 | `--adjacency-penalty-weight` | Weight for adjacency penalty (0.0-1.0)  | 0.3     |
+| `--optimization-iterations`  | Maximum optimization iterations         | 1000    |
+| `--color-adjustment-strength`| Color adjustment strength (0.0-1.0)     | 0.3     |
 
-### Optimization Settings
-
-| Option                      | Description                             | Default |
-| --------------------------- | --------------------------------------- | ------- |
-| `--enable-optimization`     | Enable simulated annealing optimization | true    |
-| `--optimization-iterations` | Maximum optimization iterations         | 1000    |
-
-### Performance & Quality
-
-| Option                        | Description                          | Default            |
-| ----------------------------- | ------------------------------------ | ------------------ |
-| `--similarity-db`             | Path to similarity database JSON     | similarity_db.json |
-| `--rebuild-similarity-db`     | Force rebuild of similarity database | false              |
-| `--color-adjustment-strength` | Color adjustment strength (0.0-1.0)  | 0.3                |
-
-### Display Options
-
-| Option        | Description                        | Default |
-| ------------- | ---------------------------------- | ------- |
-| `--show-time` | Show processing time and ETA       | true    |
-| `--show-grid` | Show real-time ASCII grid progress | true    |
+📚 **For complete parameter documentation, examples, and tutorials, see [CLI Documentation](docs/cli/)**
 
 ## Advanced Examples
 
@@ -401,6 +387,14 @@ mosaic-rust/
 │   ├── color_adjustment.rs  # HSV color adjustment
 │   ├── grid_visualizer.rs   # ASCII progress display
 │   └── time_tracker.rs      # Performance tracking
+├── docs/                    # Comprehensive documentation
+│   ├── README.md            # Documentation overview
+│   ├── api/                 # API documentation
+│   │   ├── core.md          # Core API reference
+│   │   └── modules.md       # Module-specific documentation
+│   └── cli/                 # CLI documentation
+│       ├── reference.md     # Complete CLI parameter guide
+│       └── examples.md      # Usage examples and tutorials
 ├── Cargo.toml               # Dependencies
 ├── CLAUDE.md                # AI assistant documentation
 └── .claude/
