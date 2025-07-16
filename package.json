@@ -1,0 +1,33 @@
+{
+  "name": "mosaic-rust-docs",
+  "version": "1.0.0",
+  "description": "Documentation site for Mosaic Art Generator written in Rust",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "packageManager": "pnpm@10.12.4",
+  "keywords": [
+    "mosaic",
+    "rust",
+    "documentation",
+    "vitepress",
+    "image-processing",
+    "art-generator"
+  ],
+  "author": "naporin0624",
+  "license": "MIT",
+  "devDependencies": {
+    "vitepress": "^1.0.0-rc.31",
+    "vue": "^3.3.8",
+    "prettier": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
