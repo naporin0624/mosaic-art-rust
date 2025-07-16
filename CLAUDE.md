@@ -226,12 +226,14 @@ See `.claude/commands/mosaic.md` for details.
 The codebase includes comprehensive unit tests (111 total) covering all modules:
 
 ### Core Function Tests
+
 - **Color calculation tests**: Lab conversion accuracy, Delta E 2000 color distance
 - **Mosaic generation**: `generate_mosaic`, `find_and_use_best_tile_with_position`, `fallback_tile_selection`
 - **Constructor and loading**: Database operations, k-d tree construction, parallel file processing
 - **Error handling**: Empty inputs, corrupted files, boundary conditions
 
 ### Module-Specific Tests
+
 - **Aspect ratio matching**: Filtering logic with tolerance and fallback strategies
 - **k-d tree**: Nearest neighbor search correctness and performance
 - **Usage tracker**: Limits enforcement and reset functionality
@@ -241,6 +243,7 @@ The codebase includes comprehensive unit tests (111 total) covering all modules:
 - **Color adjustment**: HSV transformations and optimal adjustment algorithms
 
 ### Test Coverage Highlights
+
 - **111 total tests** with significant coverage improvement (previously 41%)
 - **TDD approach**: Tests written following Test-Driven Development principles
 - **Edge case coverage**: Empty tiles, invalid inputs, corrupted data
@@ -288,6 +291,7 @@ The project includes a comprehensive GitHub Actions workflow in `.github/workflo
 - **Coverage**: Code coverage via `cargo-tarpaulin` with GitHub Pages deployment
 
 ### Coverage Badge Setup
+
 - Coverage badge deployed to GitHub Pages: `https://naporin0624.github.io/mosaic-art-rust/badges/coverage.svg`
 - Detailed coverage report available at: `https://naporin0624.github.io/mosaic-art-rust/`
 - Automatic badge updates on each commit
@@ -304,22 +308,26 @@ The project includes a comprehensive GitHub Actions workflow in `.github/workflo
 ## Important Implementation Notes
 
 ### Color Distance Calculation
+
 - The `calculate_delta_e_2000` function in `similarity.rs` uses a simplified but accurate CIE2000 implementation
 - Ensures symmetry: `calculate_delta_e_2000(&lab1, &lab2) == calculate_delta_e_2000(&lab2, &lab1)`
 - Uses absolute values and average chroma for perceptually uniform results
 
 ### Test Data Considerations
+
 - Test image colors avoid RGB(0,0,0) as it converts to Lab L=0, which can cause test failures
 - Material images in tests use minimum brightness values (e.g., `i * 50 + 50`) to ensure valid Lab conversions
 - Temporary directories are used extensively for test isolation
 
 ### Performance Optimizations
+
 - **k-d tree bucket size**: 256 (optimized for this use case)
 - **Parallel processing**: Material loading uses Rayon for CPU-bound operations
 - **Memory efficiency**: Arc<Tile> for shared immutable data
 - **Similarity caching**: Pre-computed upper triangular matrix for O(1) lookup
 
 ### Error Handling Patterns
+
 - Graceful handling of corrupted image files during parallel loading
 - Fallback strategies when no materials match aspect ratio constraints
 - Usage tracker reset mechanisms when constraints cannot be satisfied

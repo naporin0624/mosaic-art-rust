@@ -108,6 +108,7 @@ cargo build --release
 ```
 
 **Benefits of independent building:**
+
 - **Faster compilation**: Only builds what you need
 - **Smaller binary size**: No unused dependencies
 - **Deployment flexibility**: Ship GUI-only or CLI-only applications
@@ -167,16 +168,19 @@ The GUI provides a user-friendly interface with all CLI functionality:
 #### GUI Usage Guide
 
 1. **File Selection**:
+
    - **Target Image**: Click "Browse" to select your source image (PNG, JPG, JPEG)
    - **Material Directory**: Choose the folder containing your material images
    - **Output Path**: Specify where to save the generated mosaic
 
 2. **Grid Configuration**:
+
    - **Auto-Calculate**: Enable to automatically calculate optimal grid dimensions
    - **Total Tiles**: Enter desired number of tiles (e.g., 1400 for 50×28 grid)
    - **Manual Grid**: Directly set width and height dimensions
 
 3. **Advanced Settings**:
+
    - **Max Materials**: Limit number of material images to use (affects memory usage)
    - **Color Adjustment**: Fine-tune color matching strength (0.0-1.0)
    - **Enable Optimization**: Toggle post-placement optimization for better results
@@ -250,15 +254,15 @@ For a quick overview of the main options:
 
 ### Key Configuration Options
 
-| Option                       | Description                             | Default |
-| ---------------------------- | --------------------------------------- | ------- |
-| `--grid-w`                   | Number of tiles horizontally            | 50      |
-| `--grid-h`                   | Number of tiles vertically              | 28      |
-| `--max-materials`            | Maximum number of materials to load     | 500     |
-| `--max-usage-per-image`      | Maximum times each material can be used | 3       |
-| `--adjacency-penalty-weight` | Weight for adjacency penalty (0.0-1.0)  | 0.3     |
-| `--optimization-iterations`  | Maximum optimization iterations         | 1000    |
-| `--color-adjustment-strength`| Color adjustment strength (0.0-1.0)     | 0.3     |
+| Option                        | Description                             | Default |
+| ----------------------------- | --------------------------------------- | ------- |
+| `--grid-w`                    | Number of tiles horizontally            | 50      |
+| `--grid-h`                    | Number of tiles vertically              | 28      |
+| `--max-materials`             | Maximum number of materials to load     | 500     |
+| `--max-usage-per-image`       | Maximum times each material can be used | 3       |
+| `--adjacency-penalty-weight`  | Weight for adjacency penalty (0.0-1.0)  | 0.3     |
+| `--optimization-iterations`   | Maximum optimization iterations         | 1000    |
+| `--color-adjustment-strength` | Color adjustment strength (0.0-1.0)     | 0.3     |
 
 📚 **For complete parameter documentation, examples, and tutorials, see [CLI Documentation](docs/cli/)**
 
@@ -457,6 +461,7 @@ The simulated annealing algorithm:
 Choose the appropriate build script for your platform:
 
 **Windows (PowerShell - Recommended)**
+
 ```powershell
 # Full build with all features
 .\build.ps1
@@ -472,6 +477,7 @@ Choose the appropriate build script for your platform:
 ```
 
 **Windows (Command Prompt)**
+
 ```cmd
 # Release build (recommended)
 build.bat
@@ -484,6 +490,7 @@ build.bat clean
 ```
 
 **Linux/macOS/WSL**
+
 ```bash
 # Full release build
 ./quick-build.sh build
@@ -517,7 +524,7 @@ cargo fmt  # Format code
 # Build optimized CLI application
 cargo build --release
 
-# Build optimized GUI application  
+# Build optimized GUI application
 cargo build --bin mosaic-gui --release
 ```
 

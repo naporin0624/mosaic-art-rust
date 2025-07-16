@@ -8,7 +8,7 @@ on:
       - 'docs/**'
       - 'package.json'
       - '.github/workflows/deploy-docs.yml'
-  
+
   # Allow manual deployment
   workflow_dispatch:
 
@@ -33,27 +33,27 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Not needed if lastUpdated is not enabled
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 10.12.4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22.16.0
           cache: pnpm
-      
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
-      
+
       - name: Install dependencies
         run: pnpm install
-      
+
       - name: Build with VitePress
         run: pnpm run docs:build
-      
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
