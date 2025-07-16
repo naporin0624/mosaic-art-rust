@@ -93,13 +93,7 @@ jobs:
         run: cargo build --bin mosaic-gui --release
 
       - name: Test GUI build
-        run: |
-          ls -la target/release/
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            test -f target/release/mosaic-gui.exe || (echo "GUI executable not found" && exit 1)
-          else
-            test -f target/release/mosaic-gui || (echo "GUI executable not found" && exit 1)
-          fi
+        run: test -f target/release/mosaic-gui || (echo "GUI executable not found" && exit 1)
 
   gui_test:
     name: GUI Tests
