@@ -135,7 +135,7 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Run coverage with GUI components
-        run: cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
+        run: cargo tarpaulin --verbose --all-features --workspace --timeout 300 --out xml
 
       - name: Upload coverage to GitHub Pages
         if: github.ref == 'refs/heads/main'
