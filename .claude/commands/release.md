@@ -28,7 +28,8 @@ This command will:
    - Update Cargo.toml version if needed
 
 2. **Build release binaries** (if not current):
-   - `cargo build --release` for Linux binary
+   - `cargo build --release` for CLI binary
+   - `cargo build --bin mosaic-gui --release` for GUI binary
    - Cross-compile for Windows if tools available
    - Verify binary integrity
 
@@ -44,8 +45,10 @@ This command will:
      - Breaking changes (if any)
      - Installation instructions
    - Upload binary assets:
-     - `mosaic-rust` (Linux/macOS binary)
-     - `mosaic-rust.exe` (Windows binary)
+     - `mosaic-rust` (Linux/macOS CLI binary)
+     - `mosaic-rust.exe` (Windows CLI binary)
+     - `mosaic-gui` (Linux/macOS GUI binary)
+     - `mosaic-gui.exe` (Windows GUI binary)
    - Mark as latest release
 
 5. **Generate release notes template**:
@@ -66,14 +69,25 @@ This command will:
    ### 📦 Installation
    
    #### Download Binaries
+   
+   **CLI Version (Command Line)**:
    - **Linux/macOS**: Download `mosaic-rust`
    - **Windows**: Download `mosaic-rust.exe`
+   
+   **GUI Version (Graphical Interface)**:
+   - **Linux/macOS**: Download `mosaic-gui`
+   - **Windows**: Download `mosaic-gui.exe`
    
    #### Build from Source
    ```bash
    git clone <repo-url>
    cd mosaic-rust
+   
+   # Build CLI version
    cargo build --release
+   
+   # Build GUI version
+   cargo build --bin mosaic-gui --release
    ```
    
    ### 🔄 What's Changed
@@ -104,7 +118,9 @@ This command will:
 
 ## Prerequisites
 - Clean git working directory
-- Compiled release binaries in `target/release/`
+- Compiled release binaries in `target/release/`:
+  - `mosaic-rust` (CLI binary)
+  - `mosaic-gui` (GUI binary)
 - GitHub CLI (gh) authenticated
 - Proper repository permissions
 
