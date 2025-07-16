@@ -1,44 +1,66 @@
-name: Coverage Badge
+name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 # GitHub Pages deployment requires these permissions
 permissions:
-  contents: read # so the job can checkout code
-  pages: write # must be write so the job can create a Pages deployment
-  id-token: write # needed so the job can request an OIDC token for the Pages API
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  coverage:
+  deploy:
     runs-on: ubuntu-latest
-    container:
-      image: xd009642/tarpaulin:latest
-      options: --security-opt seccomp=unconfined
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
+    
     steps:
-      - name: Checkout sources
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Install jq
-        run: |
-          apt-get update && apt-get install -y jq
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10.12.4
 
-      - name: Run cargo-tarpaulin
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build VitePress docs
+        run: pnpm run docs:build
+
+      - name: Install jq for coverage
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Run coverage
         id: coverage
         run: |
           cargo tarpaulin --workspace --out Json --output-dir coverage --timeout 120 --verbose --run-types Tests 2>&1 | tee tarpaulin_output.txt
 
-          # Debug: show JSON structure
-          echo "=== JSON file content ==="
-          cat coverage/*.json
-          echo "========================="
-
-          # Check if percent_covered exists and is not null
+          # Parse coverage percentage
           JSON_FILE=$(ls coverage/*.json | head -1)
           if jq -e '.percent_covered != null' "$JSON_FILE" > /dev/null 2>&1; then
             PCT=$(jq -r '.percent_covered | floor' "$JSON_FILE")
@@ -83,6 +105,7 @@ jobs:
         run: |
           mkdir -p deploy/badges
           cp coverage.svg deploy/badges/
+          cp -r docs/.vitepress/dist/* deploy/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -93,3 +116,9 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Deployment Status
+        run: |
+          echo "✅ Successfully deployed to GitHub Pages"
+          echo "📖 Documentation: https://naporin0624.github.io/mosaic-art-rust/"
+          echo "🛡️ Coverage badge: https://naporin0624.github.io/mosaic-art-rust/badges/coverage.svg"
