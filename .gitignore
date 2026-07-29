@@ -1,5 +1,6 @@
 target
 .claude/settings.local.json
+.claude/worktrees/
 convert_all_images.sh
 convert_images.fixed.sh
 demo.sh
