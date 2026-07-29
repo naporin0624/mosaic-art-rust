@@ -9,6 +9,9 @@ export default defineConfig({
   cleanUrls: true,
   ignoreDeadLinks: true,
 
+  // 作業メモは公開サイトに載せない
+  srcExclude: ['tasks.md'],
+
   // Theme configuration
   themeConfig: {
     // Site branding
