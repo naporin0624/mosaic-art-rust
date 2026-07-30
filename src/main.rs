@@ -389,8 +389,8 @@ impl MosaicGenerator {
         best_tile.map(|(_, tile)| tile)
     }
 
-    /// Records that `tile` was placed at `(x, y)`: usage tracking, then the grid write,
-    /// in that order — the same order the fused selector used to perform them inline.
+    /// Records that `tile` was placed at `(x, y)`: usage tracking is recorded
+    /// before the grid write.
     fn mark_tile_used(&mut self, tile: &Tile, x: usize, y: usize) {
         self.usage_tracker.use_image(&tile.path);
         self.placed_tiles[y][x] = Some(tile.path.clone());
