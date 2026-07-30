@@ -39,6 +39,10 @@ impl std::error::Error for FormatError {}
 /// wrong format.
 pub trait FormatProcessor {
     fn run(&self, ext: &str) -> Option<Result<MaterialFormat, FormatError>>;
+
+    /// The extension tokens this processor claims, lowercase, in the order
+    /// a UI should offer them (e.g. an rfd file-dialog filter).
+    fn extensions(&self) -> &'static [&'static str];
 }
 
 struct PngProcessor;
@@ -49,6 +53,10 @@ impl FormatProcessor for PngProcessor {
             return None;
         }
         Some(Ok(MaterialFormat::Png))
+    }
+
+    fn extensions(&self) -> &'static [&'static str] {
+        &["png"]
     }
 }
 
@@ -61,6 +69,10 @@ impl FormatProcessor for JpegProcessor {
             _ => None,
         }
     }
+
+    fn extensions(&self) -> &'static [&'static str] {
+        &["jpg", "jpeg"]
+    }
 }
 
 struct WebpProcessor;
@@ -71,6 +83,10 @@ impl FormatProcessor for WebpProcessor {
             return None;
         }
         Some(Ok(MaterialFormat::Webp))
+    }
+
+    fn extensions(&self) -> &'static [&'static str] {
+        &["webp"]
     }
 }
 
@@ -101,6 +117,17 @@ impl FormatRegistry {
             }
         }
         Err(FormatError::Unsupported(ext))
+    }
+
+    /// All extension tokens the registered processors claim, in
+    /// registration order — the single source of truth for anything that
+    /// needs to list supported material extensions (e.g. an rfd dialog
+    /// filter), so it can't drift from what `dispatch` actually accepts.
+    pub fn extensions(&self) -> Vec<&'static str> {
+        self.processors
+            .iter()
+            .flat_map(|processor| processor.extensions().iter().copied())
+            .collect()
     }
 }
 
@@ -195,5 +222,11 @@ mod tests {
     #[test]
     fn test_is_supported_rejects_missing_extension() {
         assert!(!is_supported(Path::new("no_extension")));
+    }
+
+    #[test]
+    fn test_registry_extensions_matches_all_processors() {
+        let registry = FormatRegistry::default();
+        assert_eq!(registry.extensions(), vec!["png", "jpg", "jpeg", "webp"]);
     }
 }

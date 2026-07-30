@@ -33,7 +33,7 @@ use image::{DynamicImage, ImageBuffer, Rgb};
 use kiddo::SquaredEuclidean;
 #[cfg(not(test))]
 use mosaic_rust::adjacency::{AdjacencyPenaltyCalculator, GridPosition};
-use mosaic_rust::material_format::is_supported;
+use mosaic_rust::material_format::{is_supported, FormatRegistry};
 #[cfg(not(test))]
 use mosaic_rust::optimizer::{MosaicOptimizer, OptimizationConfig};
 #[cfg(not(test))]
@@ -397,8 +397,12 @@ impl Application for MosaicApp {
                 self.pending_selection = Some(FileSelectionType::Target);
                 return Command::perform(
                     async {
+                        // Derived from the material-format registry so this
+                        // picker can never drift from what the material
+                        // scan actually loads (see material_format.rs).
+                        let extensions = FormatRegistry::default().extensions();
                         rfd::AsyncFileDialog::new()
-                            .add_filter("images", &["png", "jpg", "jpeg"])
+                            .add_filter("images", &extensions)
                             .pick_file()
                             .await
                             .map(|handle| handle.path().to_path_buf())
