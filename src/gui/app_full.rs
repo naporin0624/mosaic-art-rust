@@ -1814,7 +1814,7 @@ fn generate_mosaic_internal(
             }
 
             // Show progress for every 1% of cells or when verbose
-            if cell_index % (total_cells / 100).max(1) == 0 || verbose {
+            if cell_index.is_multiple_of((total_cells / 100).max(1)) || verbose {
                 let cell_progress = cell_index as f32 / total_cells as f32;
                 let overall_progress = 0.5 + (cell_progress * 0.4); // 50% to 90%
                 let percentage = cell_progress * 100.0;
@@ -2281,14 +2281,16 @@ mod tests {
     #[test]
     fn test_mosaic_settings_default_verbose_logging_false() {
         let settings = MosaicSettings::default();
-        assert_eq!(settings.verbose_logging, false);
+        assert!(!settings.verbose_logging);
     }
 
     #[test]
     fn test_mosaic_settings_with_verbose_logging_enabled() {
-        let mut settings = MosaicSettings::default();
-        settings.verbose_logging = true;
-        assert_eq!(settings.verbose_logging, true);
+        let settings = MosaicSettings {
+            verbose_logging: true,
+            ..Default::default()
+        };
+        assert!(settings.verbose_logging);
     }
 
     #[test]
@@ -2335,11 +2337,11 @@ mod tests {
         assert_eq!(settings.grid_w, 10);
         assert_eq!(settings.grid_h, 10);
         assert_eq!(settings.total_tiles, Some(100));
-        assert_eq!(settings.auto_calculate, false);
+        assert!(!settings.auto_calculate);
         assert_eq!(settings.max_materials, 100);
         assert_eq!(settings.color_adjustment, 0.5);
-        assert_eq!(settings.enable_optimization, true);
-        assert_eq!(settings.verbose_logging, true);
+        assert!(settings.enable_optimization);
+        assert!(settings.verbose_logging);
         assert_eq!(settings.max_usage_per_image, 5);
         assert_eq!(settings.adjacency_penalty_weight, 0.2);
         assert_eq!(settings.optimization_iterations, 500);
@@ -2352,7 +2354,7 @@ mod tests {
         let mut captured_output = Vec::new();
 
         let mut log_message = |message: &str| {
-            captured_output.push(format!("{}", message));
+            captured_output.push(message.to_string());
         };
 
         log_message("Test message");
@@ -2476,8 +2478,8 @@ mod tests {
     #[test]
     fn test_mosaic_app_initial_verbose_state() {
         let (app, _) = MosaicApp::new(());
-        assert_eq!(
-            app.settings.verbose_logging, false,
+        assert!(
+            !app.settings.verbose_logging,
             "Verbose logging should be disabled by default"
         );
     }
@@ -2600,12 +2602,12 @@ mod tests {
 
         // In a real GUI test, we would check that the checkbox reflects the state
         // Here we just verify the initial state
-        assert_eq!(app.settings.verbose_logging, false);
+        assert!(!app.settings.verbose_logging);
 
         // Test state after toggling
         let mut app_toggled = app;
         app_toggled.update(Message::VerboseLoggingToggled(true));
-        assert_eq!(app_toggled.settings.verbose_logging, true);
+        assert!(app_toggled.settings.verbose_logging);
     }
 
     // New fallback scenario tests
@@ -2893,10 +2895,12 @@ mod tests {
 
     #[test]
     fn test_auto_calculate_max_usage_per_image_when_zero() {
-        let mut settings = MosaicSettings::default();
-        settings.max_usage_per_image = 0; // Set to 0 to trigger auto-calculation
-        settings.total_tiles = Some(1000);
-        settings.max_materials = 250;
+        let settings = MosaicSettings {
+            max_usage_per_image: 0, // Set to 0 to trigger auto-calculation
+            total_tiles: Some(1000),
+            max_materials: 250,
+            ..Default::default()
+        };
 
         let calculated_usage = auto_calculate_max_usage_per_image(&settings);
         assert_eq!(calculated_usage, 4); // 1000 / 250 = 4
@@ -2904,10 +2908,12 @@ mod tests {
 
     #[test]
     fn test_auto_calculate_max_usage_per_image_when_already_set() {
-        let mut settings = MosaicSettings::default();
-        settings.max_usage_per_image = 5; // Already set to non-zero
-        settings.total_tiles = Some(1000);
-        settings.max_materials = 250;
+        let settings = MosaicSettings {
+            max_usage_per_image: 5, // Already set to non-zero
+            total_tiles: Some(1000),
+            max_materials: 250,
+            ..Default::default()
+        };
 
         let calculated_usage = auto_calculate_max_usage_per_image(&settings);
         assert_eq!(calculated_usage, 5); // Should keep existing value
@@ -2915,10 +2921,12 @@ mod tests {
 
     #[test]
     fn test_auto_calculate_max_usage_per_image_handles_division_by_zero() {
-        let mut settings = MosaicSettings::default();
-        settings.max_usage_per_image = 0;
-        settings.total_tiles = Some(1000);
-        settings.max_materials = 0; // Division by zero case
+        let settings = MosaicSettings {
+            max_usage_per_image: 0,
+            total_tiles: Some(1000),
+            max_materials: 0, // Division by zero case
+            ..Default::default()
+        };
 
         let calculated_usage = auto_calculate_max_usage_per_image(&settings);
         assert_eq!(calculated_usage, 1); // Should default to 1 to avoid division by zero
@@ -2926,10 +2934,12 @@ mod tests {
 
     #[test]
     fn test_auto_calculate_max_usage_per_image_handles_no_total_tiles() {
-        let mut settings = MosaicSettings::default();
-        settings.max_usage_per_image = 0;
-        settings.total_tiles = None; // No total tiles set
-        settings.max_materials = 250;
+        let settings = MosaicSettings {
+            max_usage_per_image: 0,
+            total_tiles: None, // No total tiles set
+            max_materials: 250,
+            ..Default::default()
+        };
 
         let calculated_usage = auto_calculate_max_usage_per_image(&settings);
         assert_eq!(calculated_usage, 1); // Should default to 1 when no total tiles
@@ -2937,10 +2947,12 @@ mod tests {
 
     #[test]
     fn test_auto_calculate_max_usage_per_image_rounds_up() {
-        let mut settings = MosaicSettings::default();
-        settings.max_usage_per_image = 0;
-        settings.total_tiles = Some(1000);
-        settings.max_materials = 333; // 1000 / 333 = 3.003...
+        let settings = MosaicSettings {
+            max_usage_per_image: 0,
+            total_tiles: Some(1000),
+            max_materials: 333, // 1000 / 333 = 3.003...
+            ..Default::default()
+        };
 
         let calculated_usage = auto_calculate_max_usage_per_image(&settings);
         assert_eq!(calculated_usage, 4); // Should round up to ensure all tiles can be used
@@ -3194,7 +3206,7 @@ mod tests {
     fn test_auto_calculate_max_usage_message() {
         let message = Message::AutoCalculateMaxUsageToggled(true);
         match message {
-            Message::AutoCalculateMaxUsageToggled(val) => assert_eq!(val, true),
+            Message::AutoCalculateMaxUsageToggled(val) => assert!(val),
             _ => panic!("Expected AutoCalculateMaxUsageToggled message"),
         }
     }
