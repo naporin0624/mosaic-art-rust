@@ -173,14 +173,7 @@ impl MosaicGenerator {
             .filter_map(|e| e.ok())
             .filter(|e| {
                 let path = e.path();
-                path.is_file()
-                    && path
-                        .extension()
-                        .and_then(|ext| ext.to_str())
-                        .map(|ext| {
-                            matches!(ext.to_lowercase().as_str(), "png" | "jpg" | "jpeg" | "webp")
-                        })
-                        .unwrap_or(false)
+                path.is_file() && mosaic_rust::material_format::is_supported(&path)
             })
             .collect();
 
@@ -1650,16 +1643,10 @@ mod tests {
         let tiles = result.unwrap();
         assert_eq!(tiles.len(), 3); // Only image files should be loaded
 
-        // Verify all tiles have proper extensions
+        // Verify all tiles have proper extensions, via the shared registry
+        // rather than a second hand-copied extension list.
         for tile in &tiles {
-            let extension = tile
-                .path
-                .extension()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_lowercase();
-            assert!(matches!(extension.as_str(), "png" | "jpg" | "jpeg"));
+            assert!(mosaic_rust::material_format::is_supported(&tile.path));
         }
     }
 

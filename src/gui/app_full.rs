@@ -1642,17 +1642,12 @@ fn generate_mosaic_internal(
             material_path.display()
         ),
     );
-    debug_log("Scanning directory for image files (png, jpg, jpeg)");
+    debug_log("Scanning directory for image files (png, jpg, jpeg, webp)");
     let material_files: Vec<PathBuf> = std::fs::read_dir(&material_path)
         .map_err(|e| format!("Failed to read material directory: {e}"))?
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
-        .filter(|path| {
-            path.extension()
-                .and_then(|ext| ext.to_str())
-                .map(|ext| matches!(ext.to_lowercase().as_str(), "png" | "jpg" | "jpeg"))
-                .unwrap_or(false)
-        })
+        .filter(|path| mosaic_rust::material_format::is_supported(path))
         .take(settings.max_materials)
         .collect();
 
