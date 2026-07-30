@@ -121,20 +121,6 @@ impl SimilarityDatabase {
         let db = serde_json::from_str(&json)?;
         Ok(db)
     }
-
-    /// Try to load from file, or create new if file doesn't exist
-    pub fn load_or_new(path: &Path) -> Self {
-        match Self::load_from_file(path) {
-            Ok(db) => {
-                println!("Loaded similarity database from {path:?}");
-                db
-            }
-            Err(_) => {
-                println!("Creating new similarity database");
-                Self::new()
-            }
-        }
-    }
 }
 
 /// Calculate the Euclidean distance between two Lab colors
@@ -147,7 +133,7 @@ pub fn calculate_lab_distance(lab1: &Lab, lab2: &Lab) -> f32 {
 
 /// Calculate CIE2000 color difference (more perceptually accurate but slower)
 #[allow(dead_code)]
-pub fn calculate_delta_e_2000(lab1: &Lab, lab2: &Lab) -> f32 {
+pub fn delta_e_2000(lab1: &Lab, lab2: &Lab) -> f32 {
     // Simplified version - for full CIE2000, use a dedicated library
     // This is still more accurate than simple Euclidean distance
     let kl = 1.0;
@@ -278,20 +264,26 @@ mod tests {
     }
 
     #[test]
-    fn test_similarity_database_load_or_new() {
-        // Test loading from nonexistent file - should create new
+    fn test_similarity_database_recovers_new_if_missing() {
+        // A missing file should recover to a fresh database, the way the
+        // CLI caller does: `load_from_file(path).unwrap_or_else(|_| Self::new())`.
         let nonexistent_path = Path::new("nonexistent_db.json");
-        let db = SimilarityDatabase::load_or_new(nonexistent_path);
+        let db = SimilarityDatabase::load_from_file(nonexistent_path)
+            .unwrap_or_else(|_| SimilarityDatabase::new());
         assert_eq!(db.lab_colors.len(), 0);
+    }
 
-        // Test loading from existing file
+    #[test]
+    fn test_similarity_database_recovery_roundtrip() {
+        // An existing file should load through the same recovery expression.
         let mut original_db = SimilarityDatabase::new();
         original_db.add_tile(PathBuf::from("test.png"), Lab::new(50.0, 0.0, 0.0));
 
         let temp_file = NamedTempFile::new().unwrap();
         original_db.save_to_file(temp_file.path()).unwrap();
 
-        let loaded_db = SimilarityDatabase::load_or_new(temp_file.path());
+        let loaded_db = SimilarityDatabase::load_from_file(temp_file.path())
+            .unwrap_or_else(|_| SimilarityDatabase::new());
         assert_eq!(loaded_db.lab_colors.len(), 1);
     }
 
@@ -367,16 +359,13 @@ mod tests {
         let lab3 = Lab::new(60.0, 10.0, 10.0);
 
         // Same color should have 0 Delta E
-        assert_eq!(calculate_delta_e_2000(&lab1, &lab2), 0.0);
+        assert_eq!(delta_e_2000(&lab1, &lab2), 0.0);
 
         // Different colors should have positive Delta E
-        assert!(calculate_delta_e_2000(&lab1, &lab3) > 0.0);
+        assert!(delta_e_2000(&lab1, &lab3) > 0.0);
 
         // Delta E should be symmetric
-        assert_eq!(
-            calculate_delta_e_2000(&lab1, &lab3),
-            calculate_delta_e_2000(&lab3, &lab1)
-        );
+        assert_eq!(delta_e_2000(&lab1, &lab3), delta_e_2000(&lab3, &lab1));
     }
 
     #[test]
@@ -385,20 +374,17 @@ mod tests {
         let lab2 = Lab::new(60.0, 10.0, 10.0);
 
         let euclidean_distance = calculate_lab_distance(&lab1, &lab2);
-        let delta_e_2000 = calculate_delta_e_2000(&lab1, &lab2);
+        let perceptual_distance = delta_e_2000(&lab1, &lab2);
 
         // Both should be positive
         assert!(euclidean_distance > 0.0);
-        assert!(delta_e_2000 > 0.0);
+        assert!(perceptual_distance > 0.0);
 
         // Delta E 2000 should be symmetric
-        assert_eq!(
-            calculate_delta_e_2000(&lab1, &lab2),
-            calculate_delta_e_2000(&lab2, &lab1)
-        );
+        assert_eq!(delta_e_2000(&lab1, &lab2), delta_e_2000(&lab2, &lab1));
 
         // Both methods should return the same value for identical colors
-        assert_eq!(calculate_delta_e_2000(&lab1, &lab1), 0.0);
+        assert_eq!(delta_e_2000(&lab1, &lab1), 0.0);
         assert_eq!(calculate_lab_distance(&lab1, &lab1), 0.0);
     }
 

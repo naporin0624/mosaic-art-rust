@@ -183,50 +183,21 @@ impl Default for MosaicSettings {
     }
 }
 
-/// Automatically calculate max_usage_per_image based on total_tiles / max_materials
-/// Returns the existing value if it's already set (non-zero), otherwise calculates it.
-fn auto_calculate_max_usage_per_image(settings: &MosaicSettings) -> usize {
-    auto_calculate_max_usage_per_image_with_force(settings, false)
-}
-
-fn auto_calculate_max_usage_per_image_with_force(
-    settings: &MosaicSettings,
-    force_recalculate: bool,
-) -> usize {
-    #[cfg(test)]
-    println!("auto_calculate_max_usage_per_image: max_usage_per_image={}, total_tiles={:?}, max_materials={}, force={}", 
-             settings.max_usage_per_image, settings.total_tiles, settings.max_materials, force_recalculate);
-
-    // If already set to non-zero value and not forcing recalculation, keep it
-    if settings.max_usage_per_image > 0 && !force_recalculate {
-        #[cfg(test)]
-        println!(
-            "auto_calculate_max_usage_per_image: keeping existing value {}",
-            settings.max_usage_per_image
-        );
+/// Calculate max_usage_per_image based on total_tiles / max_materials.
+/// Returns the existing value if it's already set (non-zero) unless `force` is set,
+/// in which case it always recalculates from total_tiles and max_materials.
+fn calculate_max_usage(settings: &MosaicSettings, force: bool) -> usize {
+    if settings.max_usage_per_image > 0 && !force {
         return settings.max_usage_per_image;
     }
 
-    // Calculate based on total tiles and max materials
     match settings.total_tiles {
         Some(total_tiles) if total_tiles > 0 && settings.max_materials > 0 => {
-            // Calculate and round up to ensure all tiles can be used
+            // Round up to ensure all tiles can be used
             let calculated = (total_tiles as f64 / settings.max_materials as f64).ceil() as usize;
-            let result = std::cmp::max(calculated, 1); // Ensure at least 1
-
-            #[cfg(test)]
-            println!(
-                "auto_calculate_max_usage_per_image: calculated {} / {} = {}, result={}",
-                total_tiles, settings.max_materials, calculated, result
-            );
-
-            result
+            std::cmp::max(calculated, 1) // Ensure at least 1
         }
-        _ => {
-            #[cfg(test)]
-            println!("auto_calculate_max_usage_per_image: defaulting to 1");
-            1 // Default to 1 if no valid total_tiles or max_materials
-        }
+        _ => 1, // Default to 1 if no valid total_tiles or max_materials
     }
 }
 
@@ -301,7 +272,7 @@ impl Application for MosaicApp {
 
         // Trigger auto-calculation for initial setup
         if settings.max_usage_per_image == 0 {
-            settings.max_usage_per_image = auto_calculate_max_usage_per_image(&settings);
+            settings.max_usage_per_image = calculate_max_usage(&settings, false);
         }
 
         // Determine initial language based on system locale
@@ -483,8 +454,7 @@ impl Application for MosaicApp {
                 // Auto-calculate max usage per image if auto-calculation is enabled
                 if self.auto_calculate_max_usage {
                     // Force recalculation since we're in auto-calculation mode
-                    self.settings.max_usage_per_image =
-                        auto_calculate_max_usage_per_image_with_force(&self.settings, true);
+                    self.settings.max_usage_per_image = calculate_max_usage(&self.settings, true);
                     self.max_usage_per_image_input = self.settings.max_usage_per_image.to_string();
                 }
             }
@@ -507,8 +477,7 @@ impl Application for MosaicApp {
                             ..self.settings.clone()
                         };
                         // Force recalculation since we're in auto-calculation mode
-                        let new_usage =
-                            auto_calculate_max_usage_per_image_with_force(&temp_settings, true);
+                        let new_usage = calculate_max_usage(&temp_settings, true);
                         self.settings.max_usage_per_image = new_usage;
                         self.max_usage_per_image_input = new_usage.to_string();
 
@@ -543,7 +512,7 @@ impl Application for MosaicApp {
                         // Force recalculation since user explicitly set to 0
                         self.settings.max_usage_per_image = 0; // Set to 0 first
                         self.settings.max_usage_per_image =
-                            auto_calculate_max_usage_per_image(&self.settings);
+                            calculate_max_usage(&self.settings, false);
                         self.max_usage_per_image_input =
                             self.settings.max_usage_per_image.to_string();
                     } else {
@@ -1344,11 +1313,7 @@ impl InternalMosaicGenerator {
         }
     }
 
-    fn find_best_tile_for_position(
-        &mut self,
-        target_lab: &Lab,
-        position: GridPosition,
-    ) -> Option<Arc<Tile>> {
+    fn find_best_tile(&mut self, target_lab: &Lab, position: GridPosition) -> Option<Arc<Tile>> {
         // Check if we have any tiles at all
         if self.tiles.is_empty() {
             eprintln!("❌ CRITICAL: No tiles available for mosaic generation");
@@ -1356,7 +1321,7 @@ impl InternalMosaicGenerator {
         }
 
         // Stage 1: Primary selection with all constraints
-        if let Some(tile) = self.find_best_tile_primary(target_lab, position) {
+        if let Some(tile) = self.find_primary_tile(target_lab, position) {
             return Some(tile);
         }
 
@@ -1393,11 +1358,7 @@ impl InternalMosaicGenerator {
         None
     }
 
-    fn find_best_tile_primary(
-        &mut self,
-        target_lab: &Lab,
-        position: GridPosition,
-    ) -> Option<Arc<Tile>> {
+    fn find_primary_tile(&mut self, target_lab: &Lab, position: GridPosition) -> Option<Arc<Tile>> {
         let adjacency_calc =
             AdjacencyPenaltyCalculator::new(&self.similarity_db, self.adjacency_penalty_weight);
 
@@ -1427,7 +1388,7 @@ impl InternalMosaicGenerator {
             }
 
             // Check basic adjacency constraint (no same image adjacent)
-            if !self.can_place_at_position(&tile.path, position) {
+            if !self.can_place(&tile.path, position) {
                 rejected_adjacency += 1;
                 continue;
             }
@@ -1502,7 +1463,7 @@ impl InternalMosaicGenerator {
             let tile = &self.tiles[tile_idx];
             candidates_evaluated += 1;
 
-            if self.can_place_at_position(&tile.path, position) {
+            if self.can_place(&tile.path, position) {
                 eprintln!(
                     "🔄 FALLBACK SUCCESS: Found tile {} after resetting usage tracker",
                     tile.path.file_name().unwrap_or_default().to_string_lossy()
@@ -1562,7 +1523,7 @@ impl InternalMosaicGenerator {
         Some(tile.clone())
     }
 
-    fn can_place_at_position(&self, tile_path: &PathBuf, position: GridPosition) -> bool {
+    fn can_place(&self, tile_path: &PathBuf, position: GridPosition) -> bool {
         let x = position.x;
         let y = position.y;
 
@@ -1845,7 +1806,7 @@ fn generate_mosaic_internal(
                 x: col as usize,
                 y: row as usize,
             };
-            if let Some(tile) = generator.find_best_tile_for_position(&target_lab, position) {
+            if let Some(tile) = generator.find_best_tile(&target_lab, position) {
                 if verbose {
                     debug_log(&format!(
                         "Selected tile: {} (Lab: L={:.1} a={:.1} b={:.1})",
@@ -2642,7 +2603,7 @@ mod tests {
         let target_lab = Lab::new(50.0, 0.0, 0.0);
         let position = GridPosition { x: 0, y: 0 };
 
-        let result = generator.find_best_tile_for_position(&target_lab, position);
+        let result = generator.find_best_tile(&target_lab, position);
         assert!(
             result.is_none(),
             "Should return None when no tiles are available"
@@ -2650,7 +2611,7 @@ mod tests {
     }
 
     #[test]
-    fn test_can_place_at_position() {
+    fn test_can_place() {
         use std::path::PathBuf;
 
         let tiles = vec![Arc::new(Tile {
@@ -2666,13 +2627,13 @@ mod tests {
         let position = GridPosition { x: 1, y: 1 };
 
         // Should be able to place initially
-        assert!(generator.can_place_at_position(&tile_path, position));
+        assert!(generator.can_place(&tile_path, position));
 
         // Place the tile at position (0, 1) - left of target position
         generator.placed_tiles[1][0] = Some(tile_path.clone());
 
         // Should not be able to place same tile adjacent to itself
-        assert!(!generator.can_place_at_position(&tile_path, position));
+        assert!(!generator.can_place(&tile_path, position));
     }
 
     #[test]
@@ -2707,11 +2668,11 @@ mod tests {
         let position2 = GridPosition { x: 1, y: 0 };
 
         // First placement should succeed
-        let result1 = generator.find_best_tile_for_position(&target_lab, position1);
+        let result1 = generator.find_best_tile(&target_lab, position1);
         assert!(result1.is_some(), "First placement should succeed");
 
         // Second placement might need to use fallback due to usage constraints
-        let result2 = generator.find_best_tile_for_position(&target_lab, position2);
+        let result2 = generator.find_best_tile(&target_lab, position2);
         assert!(
             result2.is_some(),
             "Second placement should succeed with fallback"
@@ -2830,7 +2791,7 @@ mod tests {
         for y in 0..2 {
             for x in 0..2 {
                 let position = GridPosition { x, y };
-                let result = generator.find_best_tile_for_position(&target_lab, position);
+                let result = generator.find_best_tile(&target_lab, position);
                 assert!(
                     result.is_some(),
                     "All positions should be filled even with restrictive constraints"
@@ -2852,7 +2813,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_best_tile_primary_with_detailed_logging() {
+    fn test_find_primary_tile_with_detailed_logging() {
         use std::path::PathBuf;
 
         let tiles = vec![
@@ -2875,7 +2836,7 @@ mod tests {
         let position = GridPosition { x: 0, y: 0 };
 
         // Primary selection should succeed
-        let result = generator.find_best_tile_primary(&target_lab, position);
+        let result = generator.find_primary_tile(&target_lab, position);
         assert!(
             result.is_some(),
             "Primary selection should succeed with available tiles"
@@ -2889,7 +2850,7 @@ mod tests {
     }
 
     #[test]
-    fn test_auto_calculate_max_usage_per_image_when_zero() {
+    fn test_max_usage_calculates_when_zero() {
         let settings = MosaicSettings {
             max_usage_per_image: 0, // Set to 0 to trigger auto-calculation
             total_tiles: Some(1000),
@@ -2897,12 +2858,12 @@ mod tests {
             ..Default::default()
         };
 
-        let calculated_usage = auto_calculate_max_usage_per_image(&settings);
+        let calculated_usage = calculate_max_usage(&settings, false);
         assert_eq!(calculated_usage, 4); // 1000 / 250 = 4
     }
 
     #[test]
-    fn test_auto_calculate_max_usage_per_image_when_already_set() {
+    fn test_max_usage_keeps_existing_value() {
         let settings = MosaicSettings {
             max_usage_per_image: 5, // Already set to non-zero
             total_tiles: Some(1000),
@@ -2910,12 +2871,12 @@ mod tests {
             ..Default::default()
         };
 
-        let calculated_usage = auto_calculate_max_usage_per_image(&settings);
+        let calculated_usage = calculate_max_usage(&settings, false);
         assert_eq!(calculated_usage, 5); // Should keep existing value
     }
 
     #[test]
-    fn test_auto_calculate_max_usage_per_image_handles_division_by_zero() {
+    fn test_max_usage_handles_zero_materials() {
         let settings = MosaicSettings {
             max_usage_per_image: 0,
             total_tiles: Some(1000),
@@ -2923,12 +2884,12 @@ mod tests {
             ..Default::default()
         };
 
-        let calculated_usage = auto_calculate_max_usage_per_image(&settings);
+        let calculated_usage = calculate_max_usage(&settings, false);
         assert_eq!(calculated_usage, 1); // Should default to 1 to avoid division by zero
     }
 
     #[test]
-    fn test_auto_calculate_max_usage_per_image_handles_no_total_tiles() {
+    fn test_max_usage_handles_no_total_tiles() {
         let settings = MosaicSettings {
             max_usage_per_image: 0,
             total_tiles: None, // No total tiles set
@@ -2936,12 +2897,12 @@ mod tests {
             ..Default::default()
         };
 
-        let calculated_usage = auto_calculate_max_usage_per_image(&settings);
+        let calculated_usage = calculate_max_usage(&settings, false);
         assert_eq!(calculated_usage, 1); // Should default to 1 when no total tiles
     }
 
     #[test]
-    fn test_auto_calculate_max_usage_per_image_rounds_up() {
+    fn test_max_usage_rounds_up() {
         let settings = MosaicSettings {
             max_usage_per_image: 0,
             total_tiles: Some(1000),
@@ -2949,7 +2910,7 @@ mod tests {
             ..Default::default()
         };
 
-        let calculated_usage = auto_calculate_max_usage_per_image(&settings);
+        let calculated_usage = calculate_max_usage(&settings, false);
         assert_eq!(calculated_usage, 4); // Should round up to ensure all tiles can be used
     }
 
@@ -2985,7 +2946,7 @@ mod tests {
         app.auto_calculate_max_usage = true; // Enable auto-calculation flag
 
         // Manually trigger auto-calculation for initial state
-        app.settings.max_usage_per_image = auto_calculate_max_usage_per_image(&app.settings);
+        app.settings.max_usage_per_image = calculate_max_usage(&app.settings, false);
         app.max_usage_per_image_input = app.settings.max_usage_per_image.to_string();
 
         // Initial state should have auto-calculated value
@@ -3075,7 +3036,7 @@ mod tests {
         app.auto_calculate_max_usage = true;
 
         // Step 1: Manual calculation to verify expected result
-        let expected_initial = auto_calculate_max_usage_per_image(&app.settings);
+        let expected_initial = calculate_max_usage(&app.settings, false);
         assert_eq!(expected_initial, 5); // 1000 / 200 = 5
 
         // Step 2: Apply the auto-calculation manually
@@ -3092,7 +3053,7 @@ mod tests {
         assert!(app.auto_calculate_max_usage);
 
         // Calculate expected result after change
-        let expected_after_change = auto_calculate_max_usage_per_image(&app.settings);
+        let expected_after_change = calculate_max_usage(&app.settings, false);
         assert_eq!(expected_after_change, 4); // 1000 / 250 = 4
 
         // Verify the update occurred
@@ -3112,7 +3073,7 @@ mod tests {
 
         // Initial calculation: 1200 / 100 = 12
         app.settings.max_usage_per_image = 0; // Set to 0 to enable auto-calculation
-        app.settings.max_usage_per_image = auto_calculate_max_usage_per_image(&app.settings);
+        app.settings.max_usage_per_image = calculate_max_usage(&app.settings, false);
         app.max_usage_per_image_input = app.settings.max_usage_per_image.to_string();
         assert_eq!(app.settings.max_usage_per_image, 12);
 
@@ -3160,11 +3121,11 @@ mod tests {
         let position2 = GridPosition { x: 1, y: 1 }; // Non-adjacent position
 
         // First placement uses up the tile
-        let result1 = generator.find_best_tile_for_position(&target_lab, position1);
+        let result1 = generator.find_best_tile(&target_lab, position1);
         assert!(result1.is_some(), "First placement should succeed");
 
         // Second placement should succeed through fallback (usage tracker reset)
-        let result2 = generator.find_best_tile_for_position(&target_lab, position2);
+        let result2 = generator.find_best_tile(&target_lab, position2);
         assert!(
             result2.is_some(),
             "Second placement should succeed with fallback"

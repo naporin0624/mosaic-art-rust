@@ -11,7 +11,7 @@ use mosaic_rust::similarity::SimilarityDatabase;
 use mosaic_rust::tile_cache::TileCache;
 use mosaic_rust::time_tracker::TimeTracker;
 use mosaic_rust::{
-    MosaicGenerator as MosaicGeneratorTrait, MosaicGeneratorImpl, Tile, UsageTracker,
+    AspectFilter, MosaicGenerator as MosaicGeneratorTrait, MosaicGeneratorImpl, Tile, UsageTracker,
 };
 use palette::Lab;
 use rayon::prelude::*;
@@ -131,7 +131,14 @@ impl MosaicGenerator {
             }
             db
         } else {
-            SimilarityDatabase::load_or_new(similarity_db_path)
+            SimilarityDatabase::load_from_file(similarity_db_path)
+                .inspect(|_| {
+                    println!("Loaded similarity database from {similarity_db_path:?}");
+                })
+                .unwrap_or_else(|_| {
+                    println!("Creating new similarity database");
+                    SimilarityDatabase::new()
+                })
         };
 
         // Ensure all tiles are in the similarity database
@@ -189,7 +196,11 @@ impl MosaicGenerator {
                 let path = entry.path();
                 pb.inc(1);
 
-                match Self::process_tile(&path, target_aspect, aspect_tolerance) {
+                let aspect_filter = AspectFilter {
+                    target: target_aspect,
+                    tolerance: aspect_tolerance,
+                };
+                match Self::process_tile(&path, Some(aspect_filter)) {
                     Ok(Some(tile)) => Some(Arc::new(tile)),
                     Ok(None) => None,
                     Err(e) => {
@@ -231,8 +242,9 @@ impl MosaicGenerator {
                 .filter_map(|entry| {
                     let path = entry.path();
                     pb2.inc(1);
-                    match Self::process_tile_no_aspect_filter(&path) {
-                        Ok(tile) => Some(Arc::new(tile)),
+                    match Self::process_tile(&path, None) {
+                        Ok(Some(tile)) => Some(Arc::new(tile)),
+                        Ok(None) => None,
                         Err(e) => {
                             eprintln!("Error processing {path:?}: {e}");
                             None
@@ -253,21 +265,15 @@ impl MosaicGenerator {
         Ok(tiles)
     }
 
-    fn process_tile(
-        path: &Path,
-        target_aspect: f32,
-        aspect_tolerance: f32,
-    ) -> Result<Option<Tile>> {
+    fn process_tile(path: &Path, aspect_filter: Option<AspectFilter>) -> Result<Option<Tile>> {
         let img = image::open(path)?;
         let (width, height) = img.dimensions();
         let aspect_ratio = width as f32 / height as f32;
 
-        if !MosaicGeneratorImpl::is_aspect_ratio_match(
-            aspect_ratio,
-            target_aspect,
-            aspect_tolerance,
-        ) {
-            return Ok(None);
+        if let Some(filter) = aspect_filter {
+            if !MosaicGeneratorImpl::aspect_matches(aspect_ratio, filter.target, filter.tolerance) {
+                return Ok(None);
+            }
         }
 
         let lab_color = MosaicGeneratorImpl::calculate_average_lab(&img);
@@ -279,27 +285,13 @@ impl MosaicGenerator {
         }))
     }
 
-    fn process_tile_no_aspect_filter(path: &Path) -> Result<Tile> {
-        let img = image::open(path)?;
-        let (width, height) = img.dimensions();
-        let aspect_ratio = width as f32 / height as f32;
-
-        let lab_color = MosaicGeneratorImpl::calculate_average_lab(&img);
-
-        Ok(Tile {
-            path: path.to_path_buf(),
-            lab_color,
-            aspect_ratio,
-        })
-    }
-
     fn initialize_grid(&mut self, grid_w: u32, grid_h: u32) {
         self.grid_width = grid_w as usize;
         self.grid_height = grid_h as usize;
         self.placed_tiles = vec![vec![None; self.grid_width]; self.grid_height];
     }
 
-    fn can_place_at_position(&self, tile_path: &PathBuf, x: usize, y: usize) -> bool {
+    fn can_place(&self, tile_path: &PathBuf, x: usize, y: usize) -> bool {
         // Check all four adjacent positions (up, down, left, right)
         let adjacent_positions = [
             (x.wrapping_sub(1), y),   // Left
@@ -325,13 +317,13 @@ impl MosaicGenerator {
         true
     }
 
-    fn find_and_use_best_tile_with_position(
-        &mut self,
-        target_lab: &Lab,
-        x: usize,
-        y: usize,
-    ) -> Option<Arc<Tile>> {
-        // Check if we have any tiles at all
+    fn is_eligible(&self, tile: &Tile, x: usize, y: usize) -> bool {
+        self.usage_tracker.can_use_image(&tile.path) && self.can_place(&tile.path, x, y)
+    }
+
+    /// Pure lookup: scores candidates by color distance plus adjacency penalty.
+    /// Never mutates usage tracking or placed tiles — see `mark_tile_used`.
+    fn find_best_tile(&self, target_lab: &Lab, x: usize, y: usize) -> Option<Arc<Tile>> {
         if self.tiles.is_empty() {
             eprintln!("No tiles available for mosaic generation");
             return None;
@@ -364,13 +356,7 @@ impl MosaicGenerator {
             }
             let tile = &self.tiles[tile_idx];
 
-            // Check usage constraint
-            if !self.usage_tracker.can_use_image(&tile.path) {
-                continue;
-            }
-
-            // Check basic adjacency constraint (no same image adjacent)
-            if !self.can_place_at_position(&tile.path, x, y) {
+            if !self.is_eligible(tile, x, y) {
                 continue;
             }
 
@@ -400,14 +386,14 @@ impl MosaicGenerator {
             }
         }
 
-        if let Some((_, tile)) = best_tile {
-            self.usage_tracker.use_image(&tile.path);
-            self.placed_tiles[y][x] = Some(tile.path.clone());
-            return Some(tile);
-        }
+        best_tile.map(|(_, tile)| tile)
+    }
 
-        // Fallback: if no tile satisfies constraints, try relaxing usage constraint
-        self.fallback_tile_selection(target_lab, x, y)
+    /// Records that `tile` was placed at `(x, y)`: usage tracking, then the grid write,
+    /// in that order — the same order the fused selector used to perform them inline.
+    fn mark_tile_used(&mut self, tile: &Tile, x: usize, y: usize) {
+        self.usage_tracker.use_image(&tile.path);
+        self.placed_tiles[y][x] = Some(tile.path.clone());
     }
 
     fn fallback_tile_selection(
@@ -438,7 +424,7 @@ impl MosaicGenerator {
             }
             let tile = &self.tiles[tile_idx];
 
-            if self.can_place_at_position(&tile.path, x, y) {
+            if self.can_place(&tile.path, x, y) {
                 self.usage_tracker.use_image(&tile.path);
                 self.placed_tiles[y][x] = Some(tile.path.clone());
                 return Some(tile.clone());
@@ -534,10 +520,17 @@ impl MosaicGenerator {
                 let region = target_img.crop_imm(region_x, region_y, tile_width, tile_height);
                 let avg_lab = MosaicGeneratorImpl::calculate_average_lab(&region);
 
-                // Find best matching tile with usage tracking and adjacency constraints
-                if let Some(best_tile) =
-                    self.find_and_use_best_tile_with_position(&avg_lab, x as usize, y as usize)
-                {
+                // Find best matching tile, then record its usage and placement.
+                let selected_tile = match self.find_best_tile(&avg_lab, x as usize, y as usize) {
+                    Some(tile) => {
+                        self.mark_tile_used(&tile, x as usize, y as usize);
+                        Some(tile)
+                    }
+                    None if self.tiles.is_empty() => None,
+                    None => self.fallback_tile_selection(&avg_lab, x as usize, y as usize),
+                };
+
+                if let Some(best_tile) = selected_tile {
                     // Load and resize the tile (decoded at most once per material)
                     let mut resized = tile_cache.get(&best_tile.path)?;
 
@@ -770,10 +763,12 @@ mod tests {
     fn test_process_tile_valid_aspect_ratio() {
         let tempdir = create_test_material_dir().unwrap();
         let test_path = tempdir.path().join("red.png");
-        let target_aspect = 1.0;
-        let tolerance = 0.1;
+        let aspect_filter = AspectFilter {
+            target: 1.0,
+            tolerance: 0.1,
+        };
 
-        let result = MosaicGenerator::process_tile(&test_path, target_aspect, tolerance);
+        let result = MosaicGenerator::process_tile(&test_path, Some(aspect_filter));
 
         assert!(result.is_ok());
         let tile = result.unwrap();
@@ -791,10 +786,12 @@ mod tests {
     fn test_process_tile_invalid_aspect_ratio() {
         let tempdir = create_test_material_dir().unwrap();
         let test_path = tempdir.path().join("red.png");
-        let target_aspect = 2.0; // Square image won't match 2:1 aspect ratio
-        let tolerance = 0.1;
+        let aspect_filter = AspectFilter {
+            target: 2.0, // Square image won't match 2:1 aspect ratio
+            tolerance: 0.1,
+        };
 
-        let result = MosaicGenerator::process_tile(&test_path, target_aspect, tolerance);
+        let result = MosaicGenerator::process_tile(&test_path, Some(aspect_filter));
 
         assert!(result.is_ok());
         let tile = result.unwrap();
@@ -802,14 +799,16 @@ mod tests {
     }
 
     #[test]
-    fn test_process_tile_no_aspect_filter() {
+    fn test_process_tile_without_filter() {
         let tempdir = create_test_material_dir().unwrap();
         let test_path = tempdir.path().join("red.png");
 
-        let result = MosaicGenerator::process_tile_no_aspect_filter(&test_path);
+        let result = MosaicGenerator::process_tile(&test_path, None);
 
         assert!(result.is_ok());
         let tile = result.unwrap();
+        assert!(tile.is_some());
+        let tile = tile.unwrap();
         assert_eq!(tile.path, test_path);
         assert_eq!(tile.aspect_ratio, 1.0);
     }
@@ -817,10 +816,12 @@ mod tests {
     #[test]
     fn test_process_tile_nonexistent_file() {
         let test_path = Path::new("nonexistent.png");
-        let target_aspect = 1.0;
-        let tolerance = 0.1;
+        let aspect_filter = AspectFilter {
+            target: 1.0,
+            tolerance: 0.1,
+        };
 
-        let result = MosaicGenerator::process_tile(test_path, target_aspect, tolerance);
+        let result = MosaicGenerator::process_tile(test_path, Some(aspect_filter));
 
         assert!(result.is_err());
     }
@@ -851,7 +852,7 @@ mod tests {
     }
 
     #[test]
-    fn test_can_place_at_position_empty_grid() {
+    fn test_can_place_empty_grid() {
         let tempdir = create_test_material_dir().unwrap();
         let similarity_db_path = tempdir.path().join("test_similarity.json");
 
@@ -872,13 +873,13 @@ mod tests {
 
         let test_path = PathBuf::from("test.png");
         // Should be able to place anywhere on empty grid
-        assert!(generator.can_place_at_position(&test_path, 0, 0));
-        assert!(generator.can_place_at_position(&test_path, 1, 1));
-        assert!(generator.can_place_at_position(&test_path, 2, 2));
+        assert!(generator.can_place(&test_path, 0, 0));
+        assert!(generator.can_place(&test_path, 1, 1));
+        assert!(generator.can_place(&test_path, 2, 2));
     }
 
     #[test]
-    fn test_can_place_at_position_adjacent_constraint() {
+    fn test_can_place_adjacent_constraint() {
         let tempdir = create_test_material_dir().unwrap();
         let similarity_db_path = tempdir.path().join("test_similarity.json");
 
@@ -903,23 +904,23 @@ mod tests {
         generator.placed_tiles[1][1] = Some(test_path.clone());
 
         // Should not be able to place the same tile adjacent to itself
-        assert!(!generator.can_place_at_position(&test_path, 0, 1)); // Left
-        assert!(!generator.can_place_at_position(&test_path, 2, 1)); // Right
-        assert!(!generator.can_place_at_position(&test_path, 1, 0)); // Up
-        assert!(!generator.can_place_at_position(&test_path, 1, 2)); // Down
+        assert!(!generator.can_place(&test_path, 0, 1)); // Left
+        assert!(!generator.can_place(&test_path, 2, 1)); // Right
+        assert!(!generator.can_place(&test_path, 1, 0)); // Up
+        assert!(!generator.can_place(&test_path, 1, 2)); // Down
 
         // Should be able to place at diagonal positions
-        assert!(generator.can_place_at_position(&test_path, 0, 0));
-        assert!(generator.can_place_at_position(&test_path, 2, 2));
+        assert!(generator.can_place(&test_path, 0, 0));
+        assert!(generator.can_place(&test_path, 2, 2));
 
         // Should be able to place different tile adjacent
         let other_path = PathBuf::from("other.png");
-        assert!(generator.can_place_at_position(&other_path, 0, 1));
-        assert!(generator.can_place_at_position(&other_path, 2, 1));
+        assert!(generator.can_place(&other_path, 0, 1));
+        assert!(generator.can_place(&other_path, 2, 1));
     }
 
     #[test]
-    fn test_can_place_at_position_boundary_conditions() {
+    fn test_can_place_boundary_conditions() {
         let tempdir = create_test_material_dir().unwrap();
         let similarity_db_path = tempdir.path().join("test_similarity.json");
 
@@ -944,13 +945,13 @@ mod tests {
         generator.placed_tiles[0][0] = Some(test_path.clone());
 
         // Should not be able to place at adjacent positions
-        assert!(!generator.can_place_at_position(&test_path, 1, 0));
-        assert!(!generator.can_place_at_position(&test_path, 0, 1));
+        assert!(!generator.can_place(&test_path, 1, 0));
+        assert!(!generator.can_place(&test_path, 0, 1));
 
         // Should be able to place at non-adjacent positions
-        assert!(generator.can_place_at_position(&test_path, 2, 0));
-        assert!(generator.can_place_at_position(&test_path, 0, 2));
-        assert!(generator.can_place_at_position(&test_path, 2, 2));
+        assert!(generator.can_place(&test_path, 2, 0));
+        assert!(generator.can_place(&test_path, 0, 2));
+        assert!(generator.can_place(&test_path, 2, 2));
     }
 
     #[test]
@@ -1117,8 +1118,26 @@ mod tests {
         assert_eq!(generator.color_adjustment_strength, 0.0);
     }
 
+    /// Mirrors the find/mark/fallback composition in `generate_mosaic`, so tests can
+    /// exercise the full selection pipeline without duplicating that composition inline.
+    fn place_best_tile(
+        generator: &mut MosaicGenerator,
+        target_lab: &Lab,
+        x: usize,
+        y: usize,
+    ) -> Option<Arc<Tile>> {
+        match generator.find_best_tile(target_lab, x, y) {
+            Some(tile) => {
+                generator.mark_tile_used(&tile, x, y);
+                Some(tile)
+            }
+            None if generator.tiles.is_empty() => None,
+            None => generator.fallback_tile_selection(target_lab, x, y),
+        }
+    }
+
     #[test]
-    fn test_find_and_use_best_tile_with_position_empty_tiles() {
+    fn test_find_best_tile_empty_tiles() {
         let tempdir = create_test_material_dir().unwrap();
         let similarity_db_path = tempdir.path().join("test_similarity.json");
 
@@ -1140,13 +1159,43 @@ mod tests {
         generator.initialize_grid(3, 3);
 
         let target_lab = Lab::new(50.0, 0.0, 0.0);
-        let result = generator.find_and_use_best_tile_with_position(&target_lab, 0, 0);
+        let result = generator.find_best_tile(&target_lab, 0, 0);
 
         assert!(result.is_none());
     }
 
     #[test]
-    fn test_find_and_use_best_tile_with_position_usage_tracking() {
+    fn test_find_best_tile_does_not_mutate() {
+        let tempdir = create_test_material_dir().unwrap();
+        let similarity_db_path = tempdir.path().join("test_similarity.json");
+
+        let mut generator = MosaicGenerator::new(
+            tempdir.path(),
+            1.0,
+            0.1,
+            10,
+            1,
+            &similarity_db_path,
+            false,
+            0.0,
+            0.3,
+        )
+        .unwrap();
+
+        generator.initialize_grid(3, 3);
+
+        let target_lab = Lab::new(50.0, 0.0, 0.0);
+        let result = generator.find_best_tile(&target_lab, 0, 0);
+
+        assert!(result.is_some());
+        // find_best_tile is a pure lookup: no usage tracked, nothing placed yet.
+        let tile = result.unwrap();
+        assert!(generator.usage_tracker.can_use_image(&tile.path));
+        assert!(generator.placed_tiles[0][0].is_none());
+    }
+
+    #[test]
+    fn test_find_best_tile_usage_tracking() {
         let tempdir = create_test_material_dir().unwrap();
         let similarity_db_path = tempdir.path().join("test_similarity.json");
 
@@ -1168,11 +1217,11 @@ mod tests {
         let target_lab = Lab::new(50.0, 0.0, 0.0);
 
         // First use should succeed
-        let result1 = generator.find_and_use_best_tile_with_position(&target_lab, 0, 0);
+        let result1 = place_best_tile(&mut generator, &target_lab, 0, 0);
         assert!(result1.is_some());
 
         // Second use of same tile should trigger fallback due to usage limit
-        let result2 = generator.find_and_use_best_tile_with_position(&target_lab, 1, 1);
+        let result2 = place_best_tile(&mut generator, &target_lab, 1, 1);
         assert!(result2.is_some());
 
         // Verify different tiles were used (or fallback occurred)
@@ -1181,7 +1230,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_and_use_best_tile_with_position_adjacency_penalty() {
+    fn test_find_best_tile_adjacency_penalty() {
         let tempdir = create_test_material_dir().unwrap();
         let similarity_db_path = tempdir.path().join("test_similarity.json");
 
@@ -1203,11 +1252,11 @@ mod tests {
         let target_lab = Lab::new(50.0, 0.0, 0.0);
 
         // Place a tile
-        let result1 = generator.find_and_use_best_tile_with_position(&target_lab, 1, 1);
+        let result1 = place_best_tile(&mut generator, &target_lab, 1, 1);
         assert!(result1.is_some());
 
         // Place adjacent tile - should consider adjacency penalty
-        let result2 = generator.find_and_use_best_tile_with_position(&target_lab, 1, 0);
+        let result2 = place_best_tile(&mut generator, &target_lab, 1, 0);
         assert!(result2.is_some());
 
         // Verify both positions are filled
@@ -1913,7 +1962,11 @@ mod tests {
         let test_path = tempdir.path().join("red.png");
 
         // Test with negative aspect tolerance
-        let result = MosaicGenerator::process_tile(&test_path, 1.0, -0.1);
+        let aspect_filter = AspectFilter {
+            target: 1.0,
+            tolerance: -0.1,
+        };
+        let result = MosaicGenerator::process_tile(&test_path, Some(aspect_filter));
         assert!(result.is_ok());
 
         let tile = result.unwrap();
@@ -1926,7 +1979,11 @@ mod tests {
         let test_path = tempdir.path().join("red.png");
 
         // Test with very large aspect tolerance
-        let result = MosaicGenerator::process_tile(&test_path, 1.0, 1000.0);
+        let aspect_filter = AspectFilter {
+            target: 1.0,
+            tolerance: 1000.0,
+        };
+        let result = MosaicGenerator::process_tile(&test_path, Some(aspect_filter));
         assert!(result.is_ok());
 
         let tile = result.unwrap();
@@ -2250,10 +2307,10 @@ mod tests {
         let test_path = PathBuf::from("test.png");
 
         // Test positions at grid boundaries
-        assert!(generator.can_place_at_position(&test_path, 0, 0)); // Top-left corner
-        assert!(generator.can_place_at_position(&test_path, 2, 2)); // Bottom-right corner
-        assert!(generator.can_place_at_position(&test_path, 0, 2)); // Bottom-left corner
-        assert!(generator.can_place_at_position(&test_path, 2, 0)); // Top-right corner
+        assert!(generator.can_place(&test_path, 0, 0)); // Top-left corner
+        assert!(generator.can_place(&test_path, 2, 2)); // Bottom-right corner
+        assert!(generator.can_place(&test_path, 0, 2)); // Bottom-left corner
+        assert!(generator.can_place(&test_path, 2, 0)); // Top-right corner
     }
 
     // Complete Pipeline Integration Tests

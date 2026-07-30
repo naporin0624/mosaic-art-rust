@@ -51,9 +51,16 @@ pub struct Tile {
     pub aspect_ratio: f32,
 }
 
+/// Target aspect ratio and how far a tile candidate may deviate from it.
+#[derive(Clone, Copy, Debug)]
+pub struct AspectFilter {
+    pub target: f32,
+    pub tolerance: f32,
+}
+
 pub trait MosaicGenerator {
     fn calculate_average_lab(img: &DynamicImage) -> Lab;
-    fn is_aspect_ratio_match(img_aspect: f32, target_aspect: f32, tolerance: f32) -> bool;
+    fn aspect_matches(img_aspect: f32, target_aspect: f32, tolerance: f32) -> bool;
 }
 
 #[derive(Debug, Clone)]
@@ -94,7 +101,7 @@ pub struct MosaicGeneratorImpl;
 
 /// Lookup table for the sRGB transfer function: u8 channel value -> linear intensity.
 /// Replaces a powf(2.4) call per channel with an array access.
-fn srgb_to_linear_lut() -> &'static [f32; 256] {
+fn srgb_linear_lut() -> &'static [f32; 256] {
     static LUT: std::sync::OnceLock<[f32; 256]> = std::sync::OnceLock::new();
     LUT.get_or_init(|| {
         std::array::from_fn(|i| {
@@ -126,7 +133,7 @@ impl MosaicGenerator for MosaicGeneratorImpl {
         let rgb_img = img.to_rgb8();
         let (width, height) = rgb_img.dimensions();
         let total_pixels = (width * height) as f64;
-        let lut = srgb_to_linear_lut();
+        let lut = srgb_linear_lut();
 
         let (mut sum_l, mut sum_a, mut sum_b) = (0.0f64, 0.0f64, 0.0f64);
         for pixel in rgb_img.pixels() {
@@ -151,7 +158,7 @@ impl MosaicGenerator for MosaicGeneratorImpl {
         )
     }
 
-    fn is_aspect_ratio_match(img_aspect: f32, target_aspect: f32, tolerance: f32) -> bool {
+    fn aspect_matches(img_aspect: f32, target_aspect: f32, tolerance: f32) -> bool {
         (img_aspect - target_aspect).abs() <= tolerance
     }
 }
@@ -244,7 +251,7 @@ mod tests {
         let img_aspect = 16.0 / 9.0;
         let tolerance = 0.1;
 
-        assert!(MosaicGeneratorImpl::is_aspect_ratio_match(
+        assert!(MosaicGeneratorImpl::aspect_matches(
             img_aspect,
             target_aspect,
             tolerance
@@ -257,7 +264,7 @@ mod tests {
         let img_aspect = 1.8;
         let tolerance = 0.1;
 
-        assert!(MosaicGeneratorImpl::is_aspect_ratio_match(
+        assert!(MosaicGeneratorImpl::aspect_matches(
             img_aspect,
             target_aspect,
             tolerance
@@ -270,7 +277,7 @@ mod tests {
         let img_aspect = 4.0 / 3.0; // 1.333...
         let tolerance = 0.1;
 
-        assert!(!MosaicGeneratorImpl::is_aspect_ratio_match(
+        assert!(!MosaicGeneratorImpl::aspect_matches(
             img_aspect,
             target_aspect,
             tolerance
@@ -283,7 +290,7 @@ mod tests {
         let img_aspect = 16.0 / 9.0; // 1.777... (landscape)
         let tolerance = 0.1;
 
-        assert!(!MosaicGeneratorImpl::is_aspect_ratio_match(
+        assert!(!MosaicGeneratorImpl::aspect_matches(
             img_aspect,
             target_aspect,
             tolerance

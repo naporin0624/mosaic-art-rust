@@ -1,4 +1,4 @@
-use crate::adjacency::{swap_creates_adjacent_duplicate, AdjacencyPenaltyCalculator, GridPosition};
+use crate::adjacency::{swap_creates_duplicate, AdjacencyPenaltyCalculator, GridPosition};
 use rand::Rng;
 use std::path::PathBuf;
 
@@ -73,7 +73,7 @@ impl<'a> MosaicOptimizer<'a> {
             }
 
             // Hard constraint: never allow the same image in adjacent cells
-            if swap_creates_adjacent_duplicate(grid, pos1, pos2) {
+            if swap_creates_duplicate(grid, pos1, pos2) {
                 continue;
             }
 
@@ -166,7 +166,7 @@ impl<'a> MosaicOptimizer<'a> {
                 continue;
             }
 
-            if swap_creates_adjacent_duplicate(grid, pos1, pos2) {
+            if swap_creates_duplicate(grid, pos1, pos2) {
                 continue;
             }
 

@@ -216,7 +216,7 @@ impl<'a> AdjacencyPenaltyCalculator<'a> {
 
 /// Returns true if swapping the tiles at `pos1` and `pos2` would place two
 /// copies of the same image in orthogonally adjacent cells
-pub fn swap_creates_adjacent_duplicate(
+pub fn swap_creates_duplicate(
     grid: &[Vec<Option<std::path::PathBuf>>],
     pos1: GridPosition,
     pos2: GridPosition,
@@ -276,7 +276,7 @@ mod tests {
     fn test_swap_detects_duplicate_brought_next_to_copy() {
         // Swapping (0,0) "A" with (2,2) "D" moves A next to the A at (1,2)
         let grid = grid_from(&[&["A", "B", "C"], &["E", "F", "G"], &["H", "A", "D"]]);
-        assert!(swap_creates_adjacent_duplicate(
+        assert!(swap_creates_duplicate(
             &grid,
             GridPosition::new(0, 0),
             GridPosition::new(2, 2),
@@ -287,7 +287,7 @@ mod tests {
     fn test_swap_allows_safe_exchange() {
         // Swapping "A" and "D" creates no adjacent duplicates
         let grid = grid_from(&[&["A", "B", "C"], &["E", "F", "G"], &["H", "I", "D"]]);
-        assert!(!swap_creates_adjacent_duplicate(
+        assert!(!swap_creates_duplicate(
             &grid,
             GridPosition::new(0, 0),
             GridPosition::new(2, 2),
@@ -298,7 +298,7 @@ mod tests {
     fn test_swap_of_adjacent_cells_ignores_each_other() {
         // (0,0) and (1,0) are adjacent; after swap they hold B,A — no duplicate
         let grid = grid_from(&[&["A", "B", "C"], &["E", "F", "G"], &["H", "I", "D"]]);
-        assert!(!swap_creates_adjacent_duplicate(
+        assert!(!swap_creates_duplicate(
             &grid,
             GridPosition::new(0, 0),
             GridPosition::new(1, 0),
@@ -309,7 +309,7 @@ mod tests {
     fn test_swap_detects_duplicate_at_second_position() {
         // Swapping (2,2) "D" with (0,0) "A": D lands at (0,0) next to D at (0,1)
         let grid = grid_from(&[&["A", "B", "C"], &["D", "F", "G"], &["H", "I", "D"]]);
-        assert!(swap_creates_adjacent_duplicate(
+        assert!(swap_creates_duplicate(
             &grid,
             GridPosition::new(2, 2),
             GridPosition::new(0, 0),
@@ -319,7 +319,7 @@ mod tests {
     #[test]
     fn test_swap_with_empty_cell_is_safe() {
         let grid = grid_from(&[&["A", "B", "C"], &["E", "", "G"], &["H", "I", "D"]]);
-        assert!(!swap_creates_adjacent_duplicate(
+        assert!(!swap_creates_duplicate(
             &grid,
             GridPosition::new(0, 0),
             GridPosition::new(1, 1),
