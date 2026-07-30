@@ -122,12 +122,109 @@ pub enum ProgressEvent {
 }
 
 /// Callback type for [`ProgressEvent`] notifications.
-pub type ProgressFn = dyn Fn(ProgressEvent) + Sync;
+pub type ProgressFn<'a> = dyn Fn(ProgressEvent) + Sync + 'a;
 
 #[inline]
-fn emit(progress: Option<&ProgressFn>, event: ProgressEvent) {
+fn emit(progress: Option<&ProgressFn<'_>>, event: ProgressEvent) {
     if let Some(callback) = progress {
         callback(event);
+    }
+}
+
+/// Decoded material images plus their average Lab colors, loaded once and
+/// reusable across [`run_pipeline_with`] calls. Lets a resident process
+/// regenerate mosaics repeatedly without re-reading the material directory.
+#[derive(Debug, Clone)]
+pub struct MaterialLibrary {
+    tiles: Vec<Arc<Tile>>,
+    aspect_filter: Option<AspectFilter>,
+}
+
+impl MaterialLibrary {
+    /// Loads up to `max_materials` materials from `dir`.
+    ///
+    /// With `Some(aspect_filter)` this behaves exactly like the CLI: only
+    /// aspect-matching images are kept and, if none match, a fallback pass
+    /// without aspect filtering samples up to `max_materials * 2` files.
+    /// With `None` every readable image is loaded (up to `max_materials`).
+    ///
+    /// The filter is remembered and re-applied by [`Self::add_incremental`].
+    pub fn load(
+        dir: &Path,
+        max_materials: usize,
+        aspect_filter: Option<AspectFilter>,
+    ) -> Result<Self> {
+        Self::load_with_progress(dir, max_materials, aspect_filter, None)
+    }
+
+    /// Same as [`Self::load`], with an optional progress callback.
+    pub fn load_with_progress(
+        dir: &Path,
+        max_materials: usize,
+        aspect_filter: Option<AspectFilter>,
+        progress: Option<&ProgressFn<'_>>,
+    ) -> Result<Self> {
+        println!("Collecting material images...");
+        let tiles =
+            MosaicGenerator::load_tiles_filtered(dir, aspect_filter, max_materials, progress)?;
+        Ok(Self {
+            tiles,
+            aspect_filter,
+        })
+    }
+
+    /// Scans `dir` and loads materials that are not yet part of the library,
+    /// applying the aspect filter given at load time. Already-loaded files are
+    /// skipped (no re-decode); no fallback pass or `max_materials` cap is
+    /// applied to the newly added files. Returns the number of tiles added.
+    pub fn add_incremental(&mut self, dir: &Path) -> Result<usize> {
+        let known: std::collections::HashSet<PathBuf> =
+            self.tiles.iter().map(|tile| tile.path.clone()).collect();
+
+        let new_paths: Vec<PathBuf> = std::fs::read_dir(dir)?
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|path| path.is_file() && is_supported(path) && !known.contains(path))
+            .collect();
+
+        let aspect_filter = self.aspect_filter;
+        let new_tiles: Vec<Arc<Tile>> = new_paths
+            .par_iter()
+            .filter_map(
+                |path| match MosaicGenerator::process_tile(path, aspect_filter) {
+                    Ok(Some(tile)) => Some(Arc::new(tile)),
+                    Ok(None) => None,
+                    Err(e) => {
+                        eprintln!("Error processing {path:?}: {e}");
+                        None
+                    }
+                },
+            )
+            .collect();
+
+        let added = new_tiles.len();
+        self.tiles.extend(new_tiles);
+        Ok(added)
+    }
+
+    /// The loaded tiles (decoded average colors plus source paths).
+    pub fn tiles(&self) -> &[Arc<Tile>] {
+        &self.tiles
+    }
+
+    /// Number of loaded materials.
+    pub fn len(&self) -> usize {
+        self.tiles.len()
+    }
+
+    /// Whether the library holds no materials.
+    pub fn is_empty(&self) -> bool {
+        self.tiles.is_empty()
+    }
+
+    /// The aspect filter supplied at load time, if any.
+    pub fn aspect_filter(&self) -> Option<AspectFilter> {
+        self.aspect_filter
     }
 }
 
@@ -212,41 +309,8 @@ impl MosaicGenerator {
         adjacency_penalty_weight: f32,
         color_adjustment_strength: f32,
     ) -> Result<Self> {
-        Self::new_with_progress(
-            material_dir,
-            target_aspect,
-            aspect_tolerance,
-            max_materials,
-            max_usage_per_image,
-            similarity_db_path,
-            rebuild_similarity,
-            adjacency_penalty_weight,
-            color_adjustment_strength,
-            None,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn new_with_progress(
-        material_dir: &Path,
-        target_aspect: f32,
-        aspect_tolerance: f32,
-        max_materials: usize,
-        max_usage_per_image: usize,
-        similarity_db_path: &Path,
-        rebuild_similarity: bool,
-        adjacency_penalty_weight: f32,
-        color_adjustment_strength: f32,
-        progress: Option<&ProgressFn>,
-    ) -> Result<Self> {
         println!("Collecting material images...");
-        let tiles = Self::load_tiles_with_progress(
-            material_dir,
-            target_aspect,
-            aspect_tolerance,
-            max_materials,
-            progress,
-        )?;
+        let tiles = Self::load_tiles(material_dir, target_aspect, aspect_tolerance, max_materials)?;
 
         Self::from_tiles(
             tiles,
@@ -329,21 +393,22 @@ impl MosaicGenerator {
         aspect_tolerance: f32,
         max_materials: usize,
     ) -> Result<Vec<Arc<Tile>>> {
-        Self::load_tiles_with_progress(
+        Self::load_tiles_filtered(
             material_dir,
-            target_aspect,
-            aspect_tolerance,
+            Some(AspectFilter {
+                target: target_aspect,
+                tolerance: aspect_tolerance,
+            }),
             max_materials,
             None,
         )
     }
 
-    fn load_tiles_with_progress(
+    fn load_tiles_filtered(
         material_dir: &Path,
-        target_aspect: f32,
-        aspect_tolerance: f32,
+        aspect_filter: Option<AspectFilter>,
         max_materials: usize,
-        progress: Option<&ProgressFn>,
+        progress: Option<&ProgressFn<'_>>,
     ) -> Result<Vec<Arc<Tile>>> {
         let entries: Vec<_> = std::fs::read_dir(material_dir)?
             .filter_map(|e| e.ok())
@@ -366,11 +431,7 @@ impl MosaicGenerator {
                 let path = entry.path();
                 emit(progress, ProgressEvent::MaterialLoadTick);
 
-                let aspect_filter = AspectFilter {
-                    target: target_aspect,
-                    tolerance: aspect_tolerance,
-                };
-                match Self::process_tile(&path, Some(aspect_filter)) {
+                match Self::process_tile(&path, aspect_filter) {
                     Ok(Some(tile)) => Some(Arc::new(tile)),
                     Ok(None) => None,
                     Err(e) => {
@@ -385,45 +446,50 @@ impl MosaicGenerator {
 
         let mut tiles = tiles;
 
-        // If no tiles match the aspect ratio, fall back to loading tiles without aspect filtering
+        // If no tiles match the aspect ratio, fall back to loading tiles without
+        // aspect filtering. (An unfiltered first pass has nothing to relax, so
+        // the fallback only applies when a filter was requested.)
         if tiles.is_empty() {
-            println!("No tiles matched target aspect ratio {target_aspect:.3}, loading tiles without aspect filtering...");
+            if let Some(filter) = aspect_filter {
+                let target_aspect = filter.target;
+                println!("No tiles matched target aspect ratio {target_aspect:.3}, loading tiles without aspect filtering...");
 
-            // Take a subset of entries to speed up processing
-            let max_fallback_tiles = std::cmp::min(entries.len(), max_materials * 2);
+                // Take a subset of entries to speed up processing
+                let max_fallback_tiles = std::cmp::min(entries.len(), max_materials * 2);
 
-            println!(
-                "Processing {} material images (sampled from {} total)...",
-                max_fallback_tiles,
-                entries.len()
-            );
+                println!(
+                    "Processing {} material images (sampled from {} total)...",
+                    max_fallback_tiles,
+                    entries.len()
+                );
 
-            emit(
-                progress,
-                ProgressEvent::MaterialFallbackStarted {
-                    total: max_fallback_tiles,
-                },
-            );
+                emit(
+                    progress,
+                    ProgressEvent::MaterialFallbackStarted {
+                        total: max_fallback_tiles,
+                    },
+                );
 
-            let fallback_tiles: Vec<_> = entries
-                .iter()
-                .take(max_fallback_tiles)
-                .filter_map(|entry| {
-                    let path = entry.path();
-                    emit(progress, ProgressEvent::MaterialFallbackTick);
-                    match Self::process_tile(&path, None) {
-                        Ok(Some(tile)) => Some(Arc::new(tile)),
-                        Ok(None) => None,
-                        Err(e) => {
-                            eprintln!("Error processing {path:?}: {e}");
-                            None
+                let fallback_tiles: Vec<_> = entries
+                    .iter()
+                    .take(max_fallback_tiles)
+                    .filter_map(|entry| {
+                        let path = entry.path();
+                        emit(progress, ProgressEvent::MaterialFallbackTick);
+                        match Self::process_tile(&path, None) {
+                            Ok(Some(tile)) => Some(Arc::new(tile)),
+                            Ok(None) => None,
+                            Err(e) => {
+                                eprintln!("Error processing {path:?}: {e}");
+                                None
+                            }
                         }
-                    }
-                })
-                .collect();
+                    })
+                    .collect();
 
-            emit(progress, ProgressEvent::MaterialFallbackFinished);
-            tiles = fallback_tiles;
+                emit(progress, ProgressEvent::MaterialFallbackFinished);
+                tiles = fallback_tiles;
+            }
         }
 
         if tiles.len() > max_materials {
@@ -658,7 +724,7 @@ impl MosaicGenerator {
         optimization_iterations: usize,
         show_time: bool,
         show_grid: bool,
-        progress: Option<&ProgressFn>,
+        progress: Option<&ProgressFn<'_>>,
     ) -> Result<GenerationStats> {
         let grid_w_usize = usize::try_from(grid_w)?;
         let grid_h_usize = usize::try_from(grid_h)?;
@@ -928,7 +994,7 @@ pub fn run_pipeline(config: &PipelineConfig) -> Result<PipelineReport> {
 /// Same as [`run_pipeline`], with an optional progress callback.
 pub fn run_pipeline_with_progress(
     config: &PipelineConfig,
-    progress: Option<&ProgressFn>,
+    progress: Option<&ProgressFn<'_>>,
 ) -> Result<PipelineReport> {
     let start = Instant::now();
 
@@ -940,20 +1006,56 @@ pub fn run_pipeline_with_progress(
 
     println!("Target aspect ratio: {target_aspect:.3}");
 
-    let mut generator = MosaicGenerator::new_with_progress(
+    let library = MaterialLibrary::load_with_progress(
         &config.material_src,
-        target_aspect,
-        config.aspect_tolerance,
         config.max_materials,
+        Some(AspectFilter {
+            target: target_aspect,
+            tolerance: config.aspect_tolerance,
+        }),
+        progress,
+    )?;
+
+    run_pipeline_inner(&library, config, progress, start)
+}
+
+/// Runs the pipeline against an already-loaded [`MaterialLibrary`], skipping
+/// material discovery and decoding. Use this to regenerate mosaics from a
+/// resident process without re-reading the material directory.
+///
+/// The similarity database and the k-d tree are still (re)built per run from
+/// `config`, since they depend on the run's configuration.
+pub fn run_pipeline_with(
+    library: &MaterialLibrary,
+    config: &PipelineConfig,
+) -> Result<PipelineReport> {
+    run_pipeline_with_library_and_progress(library, config, None)
+}
+
+/// Same as [`run_pipeline_with`], with an optional progress callback.
+pub fn run_pipeline_with_library_and_progress(
+    library: &MaterialLibrary,
+    config: &PipelineConfig,
+    progress: Option<&ProgressFn<'_>>,
+) -> Result<PipelineReport> {
+    run_pipeline_inner(library, config, progress, Instant::now())
+}
+
+fn run_pipeline_inner(
+    library: &MaterialLibrary,
+    config: &PipelineConfig,
+    progress: Option<&ProgressFn<'_>>,
+    start: Instant,
+) -> Result<PipelineReport> {
+    let mut generator = MosaicGenerator::from_tiles(
+        library.tiles().to_vec(),
         config.max_usage_per_image,
         &config.similarity_db,
         config.rebuild_similarity_db,
         config.adjacency_penalty_weight,
         config.color_adjustment_strength,
-        progress,
     )?;
 
-    let materials_loaded = generator.tiles.len();
     let stats = generator.generate_mosaic_with_progress(
         &config.target,
         &config.output,
@@ -966,12 +1068,7 @@ pub fn run_pipeline_with_progress(
         progress,
     )?;
 
-    Ok(build_report(
-        config,
-        materials_loaded,
-        &stats,
-        start.elapsed(),
-    ))
+    Ok(build_report(config, library.len(), &stats, start.elapsed()))
 }
 
 fn build_report(
@@ -2928,5 +3025,215 @@ mod tests {
         // Verify output dimensions
         let output_img = image::open(&output_path).unwrap();
         assert_eq!(output_img.dimensions(), (160, 160));
+    }
+
+    // Public pipeline API tests
+
+    #[test]
+    fn test_pipeline_config_default_matches_cli_defaults() {
+        let config = PipelineConfig::default();
+
+        assert_eq!(config.target, PathBuf::new());
+        assert_eq!(config.material_src, PathBuf::new());
+        assert_eq!(config.output, PathBuf::new());
+        assert_eq!(config.grid_w, 50);
+        assert_eq!(config.grid_h, 28);
+        assert_eq!(config.max_materials, 500);
+        assert_eq!(config.aspect_tolerance, 0.1);
+        assert_eq!(config.max_usage_per_image, 3);
+        assert_eq!(config.adjacency_penalty_weight, 0.3);
+        assert!(config.enable_optimization);
+        assert_eq!(config.optimization_iterations, 1000);
+        assert_eq!(config.similarity_db, PathBuf::from("similarity_db.json"));
+        assert!(!config.rebuild_similarity_db);
+        assert_eq!(config.color_adjustment_strength, 0.3);
+        assert!(config.show_time);
+        assert!(config.show_grid);
+    }
+
+    #[test]
+    fn test_material_library_load_with_filter() {
+        let tempdir = create_test_material_dir().unwrap();
+
+        let library = MaterialLibrary::load(
+            tempdir.path(),
+            10,
+            Some(AspectFilter {
+                target: 1.0,
+                tolerance: 0.1,
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(library.len(), 3);
+        assert!(!library.is_empty());
+        assert_eq!(library.tiles().len(), 3);
+        assert!(library.aspect_filter().is_some());
+    }
+
+    #[test]
+    fn test_material_library_load_without_filter() {
+        let tempdir = tempdir().unwrap();
+
+        let square = create_test_image(100, 100, Rgb([255, 0, 0]));
+        let wide = create_test_image(200, 100, Rgb([0, 255, 0]));
+        square.save(tempdir.path().join("square.png")).unwrap();
+        wide.save(tempdir.path().join("wide.png")).unwrap();
+
+        let library = MaterialLibrary::load(tempdir.path(), 10, None).unwrap();
+
+        assert_eq!(library.len(), 2); // No filter: everything is loaded
+        assert!(library.aspect_filter().is_none());
+    }
+
+    #[test]
+    fn test_material_library_load_falls_back_when_no_aspect_match() {
+        let tempdir = create_test_material_dir().unwrap();
+
+        let library = MaterialLibrary::load(
+            tempdir.path(),
+            10,
+            Some(AspectFilter {
+                target: 10.0, // No square image matches
+                tolerance: 0.1,
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(library.len(), 3); // Same fallback behavior as the CLI
+    }
+
+    #[test]
+    fn test_material_library_add_incremental() {
+        let tempdir = create_test_material_dir().unwrap();
+
+        let mut library = MaterialLibrary::load(
+            tempdir.path(),
+            10,
+            Some(AspectFilter {
+                target: 1.0,
+                tolerance: 0.1,
+            }),
+        )
+        .unwrap();
+        assert_eq!(library.len(), 3);
+
+        // Nothing new yet: already-loaded files are skipped
+        assert_eq!(library.add_incremental(tempdir.path()).unwrap(), 0);
+        assert_eq!(library.len(), 3);
+
+        // A new matching image is picked up
+        let yellow = create_test_image(100, 100, Rgb([255, 255, 0]));
+        yellow.save(tempdir.path().join("yellow.png")).unwrap();
+        assert_eq!(library.add_incremental(tempdir.path()).unwrap(), 1);
+        assert_eq!(library.len(), 4);
+
+        // A new image that fails the stored aspect filter is not added
+        let wide = create_test_image(300, 100, Rgb([0, 255, 255]));
+        wide.save(tempdir.path().join("wide.png")).unwrap();
+        assert_eq!(library.add_incremental(tempdir.path()).unwrap(), 0);
+        assert_eq!(library.len(), 4);
+    }
+
+    fn test_pipeline_config(tempdir: &tempfile::TempDir, output_name: &str) -> PipelineConfig {
+        PipelineConfig {
+            target: tempdir.path().join("target.png"),
+            material_src: tempdir.path().to_path_buf(),
+            output: tempdir.path().join(output_name),
+            grid_w: 4,
+            grid_h: 4,
+            max_materials: 10,
+            enable_optimization: false,
+            similarity_db: tempdir.path().join("pipeline_similarity.json"),
+            show_time: false,
+            show_grid: false,
+            ..PipelineConfig::default()
+        }
+    }
+
+    #[test]
+    fn test_run_pipeline_stateless() {
+        let tempdir = create_test_material_dir().unwrap();
+        let target_img = create_test_image(100, 100, Rgb([128, 128, 128]));
+        target_img.save(tempdir.path().join("target.png")).unwrap();
+
+        let config = test_pipeline_config(&tempdir, "pipeline_output.png");
+        let report = run_pipeline(&config).unwrap();
+
+        assert!(config.output.exists());
+        assert_eq!(report.grid_width, 4);
+        assert_eq!(report.grid_height, 4);
+        assert_eq!(report.tile_width, 25);
+        assert_eq!(report.tile_height, 25);
+        assert_eq!(report.output_width, 100);
+        assert_eq!(report.output_height, 100);
+        assert_eq!(report.total_tiles, 16);
+        assert_eq!(report.materials_loaded, 4); // 3 materials + the target itself
+        assert!(report.distinct_materials_used >= 1);
+        assert!(report.optimization_improvement.is_none()); // Optimization disabled
+        assert_eq!(report.output_path, config.output);
+
+        let output_img = image::open(&config.output).unwrap();
+        assert_eq!(output_img.dimensions(), (100, 100));
+    }
+
+    #[test]
+    fn test_run_pipeline_with_reuses_library() {
+        let tempdir = create_test_material_dir().unwrap();
+        let target_img = create_test_image(100, 100, Rgb([100, 150, 200]));
+        target_img.save(tempdir.path().join("target.png")).unwrap();
+
+        let library = MaterialLibrary::load(
+            tempdir.path(),
+            10,
+            Some(AspectFilter {
+                target: 1.0,
+                tolerance: 0.1,
+            }),
+        )
+        .unwrap();
+
+        // Two consecutive runs against the same loaded library
+        let config1 = test_pipeline_config(&tempdir, "reuse_output_1.png");
+        let report1 = run_pipeline_with(&library, &config1).unwrap();
+        assert!(config1.output.exists());
+        assert_eq!(report1.materials_loaded, library.len());
+
+        let config2 = test_pipeline_config(&tempdir, "reuse_output_2.png");
+        let report2 = run_pipeline_with(&library, &config2).unwrap();
+        assert!(config2.output.exists());
+        assert_eq!(report2.total_tiles, 16);
+    }
+
+    #[test]
+    fn test_run_pipeline_progress_events() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let tempdir = create_test_material_dir().unwrap();
+        let target_img = create_test_image(100, 100, Rgb([128, 128, 128]));
+        target_img.save(tempdir.path().join("target.png")).unwrap();
+
+        let placement_ticks = AtomicUsize::new(0);
+        let placement_total = AtomicUsize::new(0);
+        let finished = AtomicUsize::new(0);
+        let callback = |event: ProgressEvent| match event {
+            ProgressEvent::PlacementStarted { total } => {
+                placement_total.store(total, Ordering::SeqCst);
+            }
+            ProgressEvent::PlacementTick => {
+                placement_ticks.fetch_add(1, Ordering::SeqCst);
+            }
+            ProgressEvent::PlacementFinished => {
+                finished.fetch_add(1, Ordering::SeqCst);
+            }
+            _ => {}
+        };
+
+        let config = test_pipeline_config(&tempdir, "progress_output.png");
+        run_pipeline_with_progress(&config, Some(&callback)).unwrap();
+
+        assert_eq!(placement_total.load(Ordering::SeqCst), 16);
+        assert_eq!(placement_ticks.load(Ordering::SeqCst), 16);
+        assert_eq!(finished.load(Ordering::SeqCst), 1);
     }
 }
