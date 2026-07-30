@@ -203,6 +203,18 @@ fn square_grid_width(total_tiles: u32, ratio: f32) -> u32 {
     ((total_tiles as f32 * ratio).sqrt()).round() as u32
 }
 
+/// Grid width/height for `total_tiles` at `ratio`, or `None` when there's no
+/// non-degenerate grid to compute (`total_tiles == 0` makes `square_grid_width`
+/// return 0, which would divide by zero below).
+fn calculate_grid(total_tiles: u32, ratio: f32) -> Option<(u32, u32)> {
+    let w = square_grid_width(total_tiles, ratio);
+    if w == 0 {
+        return None;
+    }
+    let h = (total_tiles / w).max(1);
+    Some((w, h))
+}
+
 /// Convert a `u32` grid coordinate/dimension to `usize` for indexing, propagating
 /// the (practically unreachable) out-of-range case as an error instead of panicking.
 fn grid_index(value: u32) -> Result<usize, String> {
@@ -489,13 +501,12 @@ impl Application for MosaicApp {
                 if self.settings.auto_calculate {
                     if let Some(total_tiles) = self.settings.total_tiles {
                         let ratio = 16.0 / 9.0;
-                        let w = square_grid_width(total_tiles, ratio);
-                        let h = (total_tiles / w).max(1);
-
-                        self.settings.grid_w = w;
-                        self.settings.grid_h = h;
-                        self.grid_w_input = w.to_string();
-                        self.grid_h_input = h.to_string();
+                        if let Some((w, h)) = calculate_grid(total_tiles, ratio) {
+                            self.settings.grid_w = w;
+                            self.settings.grid_h = h;
+                            self.grid_w_input = w.to_string();
+                            self.grid_h_input = h.to_string();
+                        }
                     }
                 }
 
@@ -589,13 +600,12 @@ impl Application for MosaicApp {
                 if let Some(total_tiles) = self.settings.total_tiles {
                     // Simple calculation: assume 16:9 aspect ratio if no target image
                     let ratio = 16.0 / 9.0;
-                    let w = square_grid_width(total_tiles, ratio);
-                    let h = (total_tiles / w).max(1);
-
-                    self.settings.grid_w = w;
-                    self.settings.grid_h = h;
-                    self.grid_w_input = w.to_string();
-                    self.grid_h_input = h.to_string();
+                    if let Some((w, h)) = calculate_grid(total_tiles, ratio) {
+                        self.settings.grid_w = w;
+                        self.settings.grid_h = h;
+                        self.grid_w_input = w.to_string();
+                        self.grid_h_input = h.to_string();
+                    }
                 }
             }
             Message::GenerateMosaic => {
@@ -3081,6 +3091,34 @@ mod tests {
         assert_eq!(app.grid_h_input, expected_h.to_string());
         assert_eq!(app.settings.grid_w, expected_w);
         assert_eq!(app.settings.grid_h, expected_h);
+    }
+
+    #[test]
+    fn test_total_tiles_changed_zero_does_not_panic() {
+        let mut app = MosaicApp::new(()).0;
+        app.settings.auto_calculate = true;
+        let grid_w_before = app.settings.grid_w;
+        let grid_h_before = app.settings.grid_h;
+
+        let _ = app.update(Message::TotalTilesChanged("0".to_string()));
+
+        // A zero total-tiles grid has no valid width/height, so the last
+        // valid grid dimensions are left in place instead of panicking.
+        assert_eq!(app.settings.grid_w, grid_w_before);
+        assert_eq!(app.settings.grid_h, grid_h_before);
+    }
+
+    #[test]
+    fn test_calculate_grid_zero_does_not_panic() {
+        let mut app = MosaicApp::new(()).0;
+        app.settings.total_tiles = Some(0);
+        let grid_w_before = app.settings.grid_w;
+        let grid_h_before = app.settings.grid_h;
+
+        let _ = app.update(Message::CalculateGrid);
+
+        assert_eq!(app.settings.grid_w, grid_w_before);
+        assert_eq!(app.settings.grid_h, grid_h_before);
     }
 
     #[test]
