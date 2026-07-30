@@ -97,20 +97,29 @@ cargo build --release
 You can build just the GUI or CLI independently:
 
 ```bash
-# Build only the GUI application (recommended for desktop users)
-cargo build --release --bin mosaic-gui
-
-# Build only the CLI application (for servers/automation)
+# Build only the CLI application (default — for servers/automation)
 cargo build --release --bin mosaic-rust
 
-# Build both (default behavior)
-cargo build --release
+# Build the GUI application (requires the `gui` feature)
+cargo build --release --bin mosaic-gui --features gui
+
+# Build everything including the GUI
+cargo build --release --features gui
+```
+
+The GUI is gated behind the opt-in `gui` cargo feature. A default build compiles only the CLI and needs **no GTK/X11 development libraries**, so it works out of the box in Docker images and on headless servers.
+
+You can also install the CLI directly from git without cloning:
+
+```bash
+cargo install --git https://github.com/naporin0624/mosaic-art-rust --bin mosaic-rust
 ```
 
 **Benefits of independent building:**
 
 - **Faster compilation**: Only builds what you need
 - **Smaller binary size**: No unused dependencies
+- **No GUI system dependencies**: CLI-only builds skip GTK/X11 entirely
 - **Deployment flexibility**: Ship GUI-only or CLI-only applications
 
 ## Quick Start
@@ -137,6 +146,41 @@ cargo build --release
   --optimization-iterations 2000
 ```
 
+### Using as a Library (Rust API)
+
+The full generation pipeline is also exposed as a library, so other Rust programs (servers, batch jobs, containers) can drive it without shelling out to the CLI:
+
+```toml
+# Cargo.toml
+[dependencies]
+mosaic-rust = { git = "https://github.com/naporin0624/mosaic-art-rust" }
+```
+
+```rust
+use mosaic_rust::pipeline::{run_pipeline, PipelineConfig};
+
+let config = PipelineConfig {
+    target: "photo.jpg".into(),
+    material_src: "./materials".into(),
+    output: "mosaic.jpg".into(),
+    ..Default::default() // defaults mirror the CLI flags
+};
+let report = run_pipeline(&config)?;
+println!("placed {} tiles", report.total_tiles);
+```
+
+For resident processes that generate many mosaics, `MaterialLibrary` loads and decodes the material directory once and can be reused across runs:
+
+```rust
+use mosaic_rust::pipeline::{run_pipeline_with, MaterialLibrary, PipelineConfig};
+
+let library = MaterialLibrary::load("./materials".as_ref(), 500, None)?;
+let report = run_pipeline_with(&library, &config)?;
+// library.add_incremental(...) picks up newly added files without re-decoding
+```
+
+Progress reporting is available via `run_pipeline_with_progress`, which takes a callback receiving `ProgressEvent`s (the CLI's progress bars are built on the same API). The library pulls in no GUI or terminal-UI dependencies.
+
 ### Graphical User Interface (GUI)
 
 For an intuitive visual interface, use the GUI application:
@@ -146,11 +190,13 @@ For an intuitive visual interface, use the GUI application:
 ./target/release/mosaic-gui
 
 # Or run from source
-cargo run --bin mosaic-gui --release
+cargo run --bin mosaic-gui --release --features gui
 
-# Build and run GUI only (no CLI dependencies)
-cargo build --release --bin mosaic-gui && ./target/release/mosaic-gui
+# Build and run GUI only
+cargo build --release --bin mosaic-gui --features gui && ./target/release/mosaic-gui
 ```
+
+> **Note**: The GUI requires the `gui` cargo feature (and GTK development libraries on Linux). See [Building Individual Components](#building-individual-components).
 
 > **💡 Independent Application**: The GUI is completely independent from the CLI and can be built and deployed separately. It includes all mosaic generation functionality built-in.
 
@@ -508,7 +554,7 @@ build.bat clean
 cargo build
 
 # Build GUI application
-cargo build --bin mosaic-gui
+cargo build --bin mosaic-gui --features gui
 
 # Run all tests (111 total)
 cargo test
@@ -525,7 +571,7 @@ cargo fmt  # Format code
 cargo build --release
 
 # Build optimized GUI application
-cargo build --bin mosaic-gui --release
+cargo build --bin mosaic-gui --release --features gui
 ```
 
 ### Build Scripts Features
