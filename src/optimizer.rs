@@ -1,4 +1,4 @@
-use crate::adjacency::{AdjacencyPenaltyCalculator, GridPosition};
+use crate::adjacency::{swap_creates_adjacent_duplicate, AdjacencyPenaltyCalculator, GridPosition};
 use rand::Rng;
 use std::path::PathBuf;
 
@@ -69,6 +69,11 @@ impl<'a> MosaicOptimizer<'a> {
 
             // Skip if either position is empty
             if grid[pos1.y][pos1.x].is_none() || grid[pos2.y][pos2.x].is_none() {
+                continue;
+            }
+
+            // Hard constraint: never allow the same image in adjacent cells
+            if swap_creates_adjacent_duplicate(grid, pos1, pos2) {
                 continue;
             }
 
@@ -161,6 +166,10 @@ impl<'a> MosaicOptimizer<'a> {
                 continue;
             }
 
+            if swap_creates_adjacent_duplicate(grid, pos1, pos2) {
+                continue;
+            }
+
             let delta = self.calculator.calculate_swap_delta(grid, pos1, pos2);
 
             if delta < 0.0 {
@@ -242,6 +251,65 @@ mod tests {
         grid[1][1] = Some(PathBuf::from("tile4.png"));
 
         (grid, sim_db)
+    }
+
+    #[test]
+    fn test_optimization_never_places_same_image_adjacent() {
+        let mut sim_db = SimilarityDatabase::new();
+        sim_db.add_tile(PathBuf::from("dup.png"), Lab::new(50.0, 0.0, 0.0));
+        for i in 0..12 {
+            sim_db.add_tile(
+                PathBuf::from(format!("uniq_{i}.png")),
+                Lab::new(30.0 + i as f32 * 4.0, i as f32 * 3.0, -(i as f32) * 3.0),
+            );
+        }
+        sim_db.build_similarities();
+
+        // Checkerboard: 13 copies of dup.png, never adjacent initially
+        let mut grid = vec![vec![None; 5]; 5];
+        let mut uniq = 0;
+        for (y, row) in grid.iter_mut().enumerate() {
+            for (x, cell) in row.iter_mut().enumerate() {
+                *cell = if (x + y) % 2 == 0 {
+                    Some(PathBuf::from("dup.png"))
+                } else {
+                    uniq += 1;
+                    Some(PathBuf::from(format!("uniq_{}.png", uniq - 1)))
+                };
+            }
+        }
+
+        let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 1.0);
+        // Very high constant temperature: nearly every proposed swap is accepted
+        let config = OptimizationConfig {
+            max_iterations: 2000,
+            initial_temperature: 1_000_000.0,
+            temperature_decay: 1.0,
+            report_interval: 10_000,
+        };
+
+        let optimizer = MosaicOptimizer::new(&calculator, config);
+        optimizer.optimize(&mut grid);
+
+        for y in 0..5 {
+            for x in 0..5 {
+                let current = grid[y][x].as_ref().unwrap();
+                if x + 1 < 5 {
+                    assert_ne!(
+                        current,
+                        grid[y][x + 1].as_ref().unwrap(),
+                        "dup at ({x},{y})-right"
+                    );
+                }
+                if y + 1 < 5 {
+                    assert_ne!(
+                        current,
+                        grid[y + 1][x].as_ref().unwrap(),
+                        "dup at ({x},{y})-down"
+                    );
+                }
+            }
+        }
     }
 
     #[test]
@@ -493,12 +561,8 @@ mod tests {
 
         // Create 5x5 grid
         let mut grid = vec![vec![None; 5]; 5];
-        let mut tile_idx = 0;
-        for y in 0..5 {
-            for x in 0..5 {
-                grid[y][x] = Some(PathBuf::from(format!("tile_{}.png", tile_idx)));
-                tile_idx += 1;
-            }
+        for (tile_idx, cell) in grid.iter_mut().flatten().enumerate() {
+            *cell = Some(PathBuf::from(format!("tile_{}.png", tile_idx)));
         }
 
         let calculator = AdjacencyPenaltyCalculator::new(&sim_db, 0.5);

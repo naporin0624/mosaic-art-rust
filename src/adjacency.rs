@@ -214,12 +214,117 @@ impl<'a> AdjacencyPenaltyCalculator<'a> {
     }
 }
 
+/// Returns true if swapping the tiles at `pos1` and `pos2` would place two
+/// copies of the same image in orthogonally adjacent cells
+pub fn swap_creates_adjacent_duplicate(
+    grid: &[Vec<Option<std::path::PathBuf>>],
+    pos1: GridPosition,
+    pos2: GridPosition,
+) -> bool {
+    let grid_height = grid.len();
+    if grid_height == 0 {
+        return false;
+    }
+    let grid_width = grid[0].len();
+
+    let (path1, path2) = match (&grid[pos1.y][pos1.x], &grid[pos2.y][pos2.x]) {
+        (Some(p1), Some(p2)) => (p1, p2),
+        _ => return false,
+    };
+
+    // After the swap, `incoming` sits at `pos`. Its neighbors keep their current
+    // contents, except the other swapped cell which will hold the other path.
+    let lands_next_to_copy =
+        |pos: GridPosition, other: GridPosition, incoming: &std::path::Path| {
+            pos.get_adjacent_positions(grid_width, grid_height)
+                .iter()
+                .any(|adj| {
+                    *adj != other
+                        && grid[adj.y][adj.x]
+                            .as_deref()
+                            .is_some_and(|neighbor| neighbor == incoming)
+                })
+        };
+
+    lands_next_to_copy(pos1, pos2, path2) || lands_next_to_copy(pos2, pos1, path1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::similarity::SimilarityDatabase;
     use palette::Lab;
     use std::path::PathBuf;
+
+    fn grid_from(rows: &[&[&str]]) -> Vec<Vec<Option<PathBuf>>> {
+        rows.iter()
+            .map(|row| {
+                row.iter()
+                    .map(|s| {
+                        if s.is_empty() {
+                            None
+                        } else {
+                            Some(PathBuf::from(s))
+                        }
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_swap_detects_duplicate_brought_next_to_copy() {
+        // Swapping (0,0) "A" with (2,2) "D" moves A next to the A at (1,2)
+        let grid = grid_from(&[&["A", "B", "C"], &["E", "F", "G"], &["H", "A", "D"]]);
+        assert!(swap_creates_adjacent_duplicate(
+            &grid,
+            GridPosition::new(0, 0),
+            GridPosition::new(2, 2),
+        ));
+    }
+
+    #[test]
+    fn test_swap_allows_safe_exchange() {
+        // Swapping "A" and "D" creates no adjacent duplicates
+        let grid = grid_from(&[&["A", "B", "C"], &["E", "F", "G"], &["H", "I", "D"]]);
+        assert!(!swap_creates_adjacent_duplicate(
+            &grid,
+            GridPosition::new(0, 0),
+            GridPosition::new(2, 2),
+        ));
+    }
+
+    #[test]
+    fn test_swap_of_adjacent_cells_ignores_each_other() {
+        // (0,0) and (1,0) are adjacent; after swap they hold B,A — no duplicate
+        let grid = grid_from(&[&["A", "B", "C"], &["E", "F", "G"], &["H", "I", "D"]]);
+        assert!(!swap_creates_adjacent_duplicate(
+            &grid,
+            GridPosition::new(0, 0),
+            GridPosition::new(1, 0),
+        ));
+    }
+
+    #[test]
+    fn test_swap_detects_duplicate_at_second_position() {
+        // Swapping (2,2) "D" with (0,0) "A": D lands at (0,0) next to D at (0,1)
+        let grid = grid_from(&[&["A", "B", "C"], &["D", "F", "G"], &["H", "I", "D"]]);
+        assert!(swap_creates_adjacent_duplicate(
+            &grid,
+            GridPosition::new(2, 2),
+            GridPosition::new(0, 0),
+        ));
+    }
+
+    #[test]
+    fn test_swap_with_empty_cell_is_safe() {
+        let grid = grid_from(&[&["A", "B", "C"], &["E", "", "G"], &["H", "I", "D"]]);
+        assert!(!swap_creates_adjacent_duplicate(
+            &grid,
+            GridPosition::new(0, 0),
+            GridPosition::new(1, 1),
+        ));
+    }
 
     #[test]
     fn test_grid_position_adjacent() {
