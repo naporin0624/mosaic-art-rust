@@ -8,6 +8,7 @@ pub mod color_adjustment;
 pub mod grid_visualizer;
 pub mod material_format;
 pub mod optimizer;
+pub mod pipeline;
 pub mod similarity;
 pub mod tile_cache;
 pub mod time_tracker;
