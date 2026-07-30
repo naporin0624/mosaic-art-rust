@@ -58,6 +58,19 @@ pub struct AspectFilter {
     pub tolerance: f32,
 }
 
+/// Width and height stay far below 2^24, so the ratio is exact enough in f32.
+#[allow(clippy::cast_precision_loss)]
+pub fn aspect_ratio(width: u32, height: u32) -> f32 {
+    width as f32 / height as f32
+}
+
+/// A `usize` index/count always fits `u64` on every platform Rust supports (32-bit or 64-bit),
+/// which is what kiddo's k-d tree and indicatif's `ProgressBar` require.
+#[allow(clippy::cast_possible_truncation)]
+pub fn wide_u64(value: usize) -> u64 {
+    value as u64
+}
+
 pub trait MosaicGenerator {
     fn calculate_average_lab(img: &DynamicImage) -> Lab;
     fn aspect_matches(img_aspect: f32, target_aspect: f32, tolerance: f32) -> bool;
@@ -99,13 +112,25 @@ impl UsageTracker {
 
 pub struct MosaicGeneratorImpl;
 
+/// `i` is a LUT index in 0..256 (the array's fixed length), so it is exactly representable in f32.
+#[allow(clippy::cast_precision_loss)]
+fn lut_index_f32(i: usize) -> f32 {
+    i as f32
+}
+
+/// An average of finite Lab channel values stays well within f32's exact range.
+#[allow(clippy::cast_possible_truncation)]
+fn narrow_f32(x: f64) -> f32 {
+    x as f32
+}
+
 /// Lookup table for the sRGB transfer function: u8 channel value -> linear intensity.
 /// Replaces a powf(2.4) call per channel with an array access.
 fn srgb_linear_lut() -> &'static [f32; 256] {
     static LUT: std::sync::OnceLock<[f32; 256]> = std::sync::OnceLock::new();
     LUT.get_or_init(|| {
         std::array::from_fn(|i| {
-            let c = i as f32 / 255.0;
+            let c = lut_index_f32(i) / 255.0;
             if c <= 0.04045 {
                 c / 12.92
             } else {
@@ -132,7 +157,7 @@ impl MosaicGenerator for MosaicGeneratorImpl {
 
         let rgb_img = img.to_rgb8();
         let (width, height) = rgb_img.dimensions();
-        let total_pixels = (width * height) as f64;
+        let total_pixels = f64::from(width) * f64::from(height);
         let lut = srgb_linear_lut();
 
         let (mut sum_l, mut sum_a, mut sum_b) = (0.0f64, 0.0f64, 0.0f64);
@@ -146,15 +171,15 @@ impl MosaicGenerator for MosaicGeneratorImpl {
             let fy = lab_f(0.2126729 * r + 0.7151522 * g + 0.0721750 * b);
             let fz = lab_f((0.0193339 * r + 0.119_192 * g + 0.9503041 * b) / ZN);
 
-            sum_l += (116.0 * fy - 16.0) as f64;
-            sum_a += (500.0 * (fx - fy)) as f64;
-            sum_b += (200.0 * (fy - fz)) as f64;
+            sum_l += f64::from(116.0 * fy - 16.0);
+            sum_a += f64::from(500.0 * (fx - fy));
+            sum_b += f64::from(200.0 * (fy - fz));
         }
 
         Lab::new(
-            (sum_l / total_pixels) as f32,
-            (sum_a / total_pixels) as f32,
-            (sum_b / total_pixels) as f32,
+            narrow_f32(sum_l / total_pixels),
+            narrow_f32(sum_a / total_pixels),
+            narrow_f32(sum_b / total_pixels),
         )
     }
 

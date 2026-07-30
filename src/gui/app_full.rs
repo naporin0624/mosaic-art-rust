@@ -20,7 +20,8 @@ use mosaic_rust::optimizer::{MosaicOptimizer, OptimizationConfig};
 use mosaic_rust::similarity::SimilarityDatabase;
 #[cfg(test)]
 use mosaic_rust::{
-    MosaicGenerator as MosaicGeneratorTrait, MosaicGeneratorImpl, Tile, UsageTracker,
+    aspect_ratio, wide_u64, MosaicGenerator as MosaicGeneratorTrait, MosaicGeneratorImpl, Tile,
+    UsageTracker,
 };
 use once_cell::sync::OnceCell;
 use rust_embed::RustEmbed;
@@ -38,7 +39,8 @@ use mosaic_rust::optimizer::{MosaicOptimizer, OptimizationConfig};
 use mosaic_rust::similarity::SimilarityDatabase;
 #[cfg(not(test))]
 use mosaic_rust::{
-    MosaicGenerator as MosaicGeneratorTrait, MosaicGeneratorImpl, Tile, UsageTracker,
+    aspect_ratio, wide_u64, MosaicGenerator as MosaicGeneratorTrait, MosaicGeneratorImpl, Tile,
+    UsageTracker,
 };
 use palette::Lab;
 use rayon::prelude::*;
@@ -183,6 +185,41 @@ impl Default for MosaicSettings {
     }
 }
 
+/// Realistic tile/material counts stay well within f64's exact integer range;
+/// the ceiling division always lands at or above 0, so the narrowing back to `usize` is safe.
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+fn ceil_ratio(total: u32, count: usize) -> usize {
+    (f64::from(total) / count as f64).ceil() as usize
+}
+
+/// Realistic tile counts (well under 2^24) stay exact enough in f32 for this square-grid estimate.
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+fn square_grid_width(total_tiles: u32, ratio: f32) -> u32 {
+    ((total_tiles as f32 * ratio).sqrt()).round() as u32
+}
+
+/// Convert a `u32` grid coordinate/dimension to `usize` for indexing, propagating
+/// the (practically unreachable) out-of-range case as an error instead of panicking.
+fn grid_index(value: u32) -> Result<usize, String> {
+    usize::try_from(value).map_err(|e| format!("grid index out of range: {e}"))
+}
+
+/// Display-only progress fraction; realistic grid-cell counts stay exact enough in f32.
+#[allow(clippy::cast_precision_loss)]
+fn progress_ratio(done: u32, total: u32) -> f32 {
+    done as f32 / total as f32
+}
+
+/// `delta` is a within-tile pixel offset, always far smaller than u32::MAX.
+#[allow(clippy::cast_possible_truncation)]
+fn pixel_offset(base: u32, delta: usize) -> u32 {
+    base + delta as u32
+}
+
 /// Calculate max_usage_per_image based on total_tiles / max_materials.
 /// Returns the existing value if it's already set (non-zero) unless `force` is set,
 /// in which case it always recalculates from total_tiles and max_materials.
@@ -194,7 +231,7 @@ fn calculate_max_usage(settings: &MosaicSettings, force: bool) -> usize {
     match settings.total_tiles {
         Some(total_tiles) if total_tiles > 0 && settings.max_materials > 0 => {
             // Round up to ensure all tiles can be used
-            let calculated = (total_tiles as f64 / settings.max_materials as f64).ceil() as usize;
+            let calculated = ceil_ratio(total_tiles, settings.max_materials);
             std::cmp::max(calculated, 1) // Ensure at least 1
         }
         _ => 1, // Default to 1 if no valid total_tiles or max_materials
@@ -440,8 +477,8 @@ impl Application for MosaicApp {
                 // Real-time grid calculation when auto-calculate is enabled
                 if self.settings.auto_calculate {
                     if let Some(total_tiles) = self.settings.total_tiles {
-                        let aspect_ratio = 16.0 / 9.0;
-                        let w = ((total_tiles as f32 * aspect_ratio).sqrt()).round() as u32;
+                        let ratio = 16.0 / 9.0;
+                        let w = square_grid_width(total_tiles, ratio);
                         let h = (total_tiles / w).max(1);
 
                         self.settings.grid_w = w;
@@ -540,8 +577,8 @@ impl Application for MosaicApp {
             Message::CalculateGrid => {
                 if let Some(total_tiles) = self.settings.total_tiles {
                     // Simple calculation: assume 16:9 aspect ratio if no target image
-                    let aspect_ratio = 16.0 / 9.0;
-                    let w = ((total_tiles as f32 * aspect_ratio).sqrt()).round() as u32;
+                    let ratio = 16.0 / 9.0;
+                    let w = square_grid_width(total_tiles, ratio);
                     let h = (total_tiles / w).max(1);
 
                     self.settings.grid_w = w;
@@ -1297,7 +1334,7 @@ impl InternalMosaicGenerator {
         for (i, tile) in tiles.iter().enumerate() {
             kdtree.add(
                 &[tile.lab_color.l, tile.lab_color.a, tile.lab_color.b],
-                i as u64,
+                wide_u64(i),
             );
         }
 
@@ -1377,7 +1414,7 @@ impl InternalMosaicGenerator {
         let mut candidates_evaluated = 0;
 
         for candidate in candidates {
-            let tile_idx = candidate.item as usize;
+            let tile_idx = usize::try_from(candidate.item).unwrap_or(usize::MAX);
             if tile_idx >= self.tiles.len() {
                 continue; // Safety check
             }
@@ -1459,7 +1496,7 @@ impl InternalMosaicGenerator {
         let mut rejected_adjacency = 0;
 
         for candidate in candidates {
-            let tile_idx = candidate.item as usize;
+            let tile_idx = usize::try_from(candidate.item).unwrap_or(usize::MAX);
             if tile_idx >= self.tiles.len() {
                 continue; // Safety check
             }
@@ -1497,7 +1534,7 @@ impl InternalMosaicGenerator {
             .nearest_one::<SquaredEuclidean>(&[target_lab.l, target_lab.a, target_lab.b])
             .item;
 
-        let tile_idx = nearest as usize;
+        let tile_idx = usize::try_from(nearest).unwrap_or(usize::MAX);
         if tile_idx >= self.tiles.len() {
             eprintln!(
                 "❌ FINAL FALLBACK FAILED: KD-tree returned invalid tile index: {} (max: {}) for position ({}, {})",
@@ -1643,7 +1680,7 @@ fn generate_mosaic_internal(
         .filter_map(|(i, path)| match image::open(path) {
             Ok(img) => {
                 let lab_color = MosaicGeneratorImpl::calculate_average_lab(&img);
-                let aspect_ratio = img.width() as f32 / img.height() as f32;
+                let tile_aspect = aspect_ratio(img.width(), img.height());
                 if verbose {
                     println!(
                         "[DEBUG] Tile {}: {} ({}x{}, aspect: {:.2}, Lab: L={:.1} a={:.1} b={:.1})",
@@ -1651,7 +1688,7 @@ fn generate_mosaic_internal(
                         path.file_name().unwrap_or_default().to_string_lossy(),
                         img.width(),
                         img.height(),
-                        aspect_ratio,
+                        tile_aspect,
                         lab_color.l,
                         lab_color.a,
                         lab_color.b
@@ -1660,7 +1697,7 @@ fn generate_mosaic_internal(
                 Some(Arc::new(Tile {
                     path: path.clone(),
                     lab_color,
-                    aspect_ratio,
+                    aspect_ratio: tile_aspect,
                 }))
             }
             Err(e) => {
@@ -1717,8 +1754,8 @@ fn generate_mosaic_internal(
     debug_log("Creating mosaic generator with k-d tree");
     let mut generator = InternalMosaicGenerator::new(
         tiles,
-        settings.grid_w as usize,
-        settings.grid_h as usize,
+        grid_index(settings.grid_w)?,
+        grid_index(settings.grid_h)?,
         settings.max_usage_per_image,
         similarity_db,
         settings.adjacency_penalty_weight,
@@ -1728,6 +1765,7 @@ fn generate_mosaic_internal(
     // Calculate tile dimensions
     let tile_width = target_img.width() / settings.grid_w;
     let tile_height = target_img.height() / settings.grid_h;
+    let tile_width_usize = grid_index(tile_width)?;
 
     log_message(&format!(
         "🔧 Grid: {}x{} ({}x{} pixels per tile)",
@@ -1774,7 +1812,7 @@ fn generate_mosaic_internal(
 
             // Show progress for every 1% of cells or when verbose
             if cell_index.is_multiple_of((total_cells / 100).max(1)) || verbose {
-                let cell_progress = cell_index as f32 / total_cells as f32;
+                let cell_progress = progress_ratio(cell_index, total_cells);
                 let overall_progress = 0.5 + (cell_progress * 0.4); // 50% to 90%
                 let percentage = cell_progress * 100.0;
                 if verbose {
@@ -1806,8 +1844,8 @@ fn generate_mosaic_internal(
 
             // Find best tile
             let position = GridPosition {
-                x: col as usize,
-                y: row as usize,
+                x: grid_index(col)?,
+                y: grid_index(row)?,
             };
             if let Some(tile) = generator.find_best_tile(&target_lab, position) {
                 if verbose {
@@ -1867,14 +1905,14 @@ fn generate_mosaic_internal(
 
                                         // Copy to output image
                                         for (dy, row_pixels) in adjusted_pixels
-                                            .chunks_exact(tile_width as usize * 3)
+                                            .chunks_exact(tile_width_usize * 3)
                                             .enumerate()
                                         {
                                             for (dx, pixel) in
                                                 row_pixels.chunks_exact(3).enumerate()
                                             {
-                                                let out_x = x + dx as u32;
-                                                let out_y = y + dy as u32;
+                                                let out_x = pixel_offset(x, dx);
+                                                let out_y = pixel_offset(y, dy);
 
                                                 if out_x < output_img.width()
                                                     && out_y < output_img.height()
@@ -1974,12 +2012,12 @@ fn generate_mosaic_internal(
 
                     // Copy target region to output image
                     for (dy, row_pixels) in target_resized
-                        .chunks_exact(tile_width as usize * 3)
+                        .chunks_exact(tile_width_usize * 3)
                         .enumerate()
                     {
                         for (dx, pixel) in row_pixels.chunks_exact(3).enumerate() {
-                            let out_x = x + dx as u32;
-                            let out_y = y + dy as u32;
+                            let out_x = pixel_offset(x, dx);
+                            let out_y = pixel_offset(y, dy);
 
                             if out_x < output_img.width() && out_y < output_img.height() {
                                 output_img.put_pixel(
@@ -2038,12 +2076,12 @@ fn generate_mosaic_internal(
 
                 // Copy target region to output image
                 for (dy, row_pixels) in target_resized
-                    .chunks_exact(tile_width as usize * 3)
+                    .chunks_exact(tile_width_usize * 3)
                     .enumerate()
                 {
                     for (dx, pixel) in row_pixels.chunks_exact(3).enumerate() {
-                        let out_x = x + dx as u32;
-                        let out_y = y + dy as u32;
+                        let out_x = pixel_offset(x, dx);
+                        let out_y = pixel_offset(y, dy);
 
                         if out_x < output_img.width() && out_y < output_img.height() {
                             output_img.put_pixel(out_x, out_y, Rgb([pixel[0], pixel[1], pixel[2]]));
@@ -2096,7 +2134,9 @@ fn generate_mosaic_internal(
 
         for row in 0..settings.grid_h {
             for col in 0..settings.grid_w {
-                if let Some(tile_path) = &generator.placed_tiles[row as usize][col as usize] {
+                let row_idx = grid_index(row)?;
+                let col_idx = grid_index(col)?;
+                if let Some(tile_path) = &generator.placed_tiles[row_idx][col_idx] {
                     if let Ok(tile_img) = image::open(tile_path) {
                         let tile_rgb = tile_img.to_rgb8();
 
@@ -2128,12 +2168,12 @@ fn generate_mosaic_internal(
 
                         // Copy to output image
                         for (dy, row_pixels) in adjusted_pixels
-                            .chunks_exact(tile_width as usize * 3)
+                            .chunks_exact(tile_width_usize * 3)
                             .enumerate()
                         {
                             for (dx, pixel) in row_pixels.chunks_exact(3).enumerate() {
-                                let out_x = col * tile_width + dx as u32;
-                                let out_y = row * tile_height + dy as u32;
+                                let out_x = pixel_offset(col * tile_width, dx);
+                                let out_y = pixel_offset(row * tile_height, dy);
 
                                 if out_x < output_img.width() && out_y < output_img.height() {
                                     output_img.put_pixel(
@@ -2187,18 +2227,18 @@ fn apply_color_adjustment(pixels: &[u8], adjustment: (f32, f32, f32), strength: 
     pixels
         .chunks_exact(3)
         .flat_map(|pixel| {
-            let r = pixel[0] as f32 / 255.0;
-            let g = pixel[1] as f32 / 255.0;
-            let b = pixel[2] as f32 / 255.0;
+            let r = f32::from(pixel[0]) / 255.0;
+            let g = f32::from(pixel[1]) / 255.0;
+            let b = f32::from(pixel[2]) / 255.0;
 
             let adjusted_r = (r + adjustment.0 * strength).clamp(0.0, 1.0);
             let adjusted_g = (g + adjustment.1 * strength).clamp(0.0, 1.0);
             let adjusted_b = (b + adjustment.2 * strength).clamp(0.0, 1.0);
 
             vec![
-                (adjusted_r * 255.0) as u8,
-                (adjusted_g * 255.0) as u8,
-                (adjusted_b * 255.0) as u8,
+                (adjusted_r * 255.0).clamp(0.0, 255.0) as u8,
+                (adjusted_g * 255.0).clamp(0.0, 255.0) as u8,
+                (adjusted_b * 255.0).clamp(0.0, 255.0) as u8,
             ]
         })
         .collect()

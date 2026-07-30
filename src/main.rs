@@ -11,7 +11,8 @@ use mosaic_rust::similarity::SimilarityDatabase;
 use mosaic_rust::tile_cache::TileCache;
 use mosaic_rust::time_tracker::TimeTracker;
 use mosaic_rust::{
-    AspectFilter, MosaicGenerator as MosaicGeneratorTrait, MosaicGeneratorImpl, Tile, UsageTracker,
+    aspect_ratio, wide_u64, AspectFilter, MosaicGenerator as MosaicGeneratorTrait,
+    MosaicGeneratorImpl, Tile, UsageTracker,
 };
 use palette::Lab;
 use rayon::prelude::*;
@@ -101,6 +102,18 @@ struct MosaicGenerator {
     color_adjustment_strength: f32,
 }
 
+/// An average of u8 channel values (0-255) never exceeds u8::MAX.
+#[allow(clippy::cast_possible_truncation)]
+fn average_channel(sum: u64, count: u64) -> u8 {
+    (sum / count) as u8
+}
+
+/// Display-only timing ratio; realistic elapsed-ms/tile counts stay exact enough in f64.
+#[allow(clippy::cast_precision_loss)]
+fn ms_per_tile(elapsed_ms: u128, total_tiles: usize) -> f64 {
+    elapsed_ms as f64 / total_tiles as f64
+}
+
 impl MosaicGenerator {
     fn new(
         material_dir: &Path,
@@ -154,7 +167,7 @@ impl MosaicGenerator {
 
         for (idx, tile) in tiles.iter().enumerate() {
             let lab = &tile.lab_color;
-            kdtree.add(&[lab.l, lab.a, lab.b], idx as u64);
+            kdtree.add(&[lab.l, lab.a, lab.b], wide_u64(idx));
         }
 
         Ok(Self {
@@ -184,7 +197,7 @@ impl MosaicGenerator {
             })
             .collect();
 
-        let pb = ProgressBar::new(entries.len() as u64);
+        let pb = ProgressBar::new(wide_u64(entries.len()));
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")?,
@@ -229,7 +242,7 @@ impl MosaicGenerator {
             );
 
             // Create a new progress bar for fallback loading
-            let pb2 = ProgressBar::new(max_fallback_tiles as u64);
+            let pb2 = ProgressBar::new(wide_u64(max_fallback_tiles));
             pb2.set_style(
                 ProgressStyle::default_bar()
                     .template("[{elapsed_precise}] {bar:40.yellow/red} {pos}/{len} {msg}")
@@ -268,10 +281,10 @@ impl MosaicGenerator {
     fn process_tile(path: &Path, aspect_filter: Option<AspectFilter>) -> Result<Option<Tile>> {
         let img = image::open(path)?;
         let (width, height) = img.dimensions();
-        let aspect_ratio = width as f32 / height as f32;
+        let tile_aspect = aspect_ratio(width, height);
 
         if let Some(filter) = aspect_filter {
-            if !MosaicGeneratorImpl::aspect_matches(aspect_ratio, filter.target, filter.tolerance) {
+            if !MosaicGeneratorImpl::aspect_matches(tile_aspect, filter.target, filter.tolerance) {
                 return Ok(None);
             }
         }
@@ -281,13 +294,13 @@ impl MosaicGenerator {
         Ok(Some(Tile {
             path: path.to_path_buf(),
             lab_color,
-            aspect_ratio,
+            aspect_ratio: tile_aspect,
         }))
     }
 
-    fn initialize_grid(&mut self, grid_w: u32, grid_h: u32) {
-        self.grid_width = grid_w as usize;
-        self.grid_height = grid_h as usize;
+    fn initialize_grid(&mut self, grid_width: usize, grid_height: usize) {
+        self.grid_width = grid_width;
+        self.grid_height = grid_height;
         self.placed_tiles = vec![vec![None; self.grid_width]; self.grid_height];
     }
 
@@ -350,7 +363,7 @@ impl MosaicGenerator {
         let mut best_tile: Option<(f32, Arc<Tile>)> = None;
 
         for neighbor in neighbors {
-            let tile_idx = neighbor.item as usize;
+            let tile_idx = usize::try_from(neighbor.item).unwrap_or(usize::MAX);
             if tile_idx >= self.tiles.len() {
                 continue; // Safety check
             }
@@ -417,7 +430,7 @@ impl MosaicGenerator {
         );
 
         for neighbor in neighbors {
-            let tile_idx = neighbor.item as usize;
+            let tile_idx = usize::try_from(neighbor.item).unwrap_or(usize::MAX);
             if tile_idx >= self.tiles.len() {
                 continue; // Safety check
             }
@@ -436,7 +449,7 @@ impl MosaicGenerator {
             .nearest_one::<SquaredEuclidean>(&[target_lab.l, target_lab.a, target_lab.b])
             .item;
 
-        let tile_idx = nearest as usize;
+        let tile_idx = usize::try_from(nearest).unwrap_or(usize::MAX);
         if tile_idx >= self.tiles.len() {
             eprintln!(
                 "KD-tree returned invalid tile index: {} (max: {})",
@@ -463,8 +476,11 @@ impl MosaicGenerator {
         show_time: bool,
         show_grid: bool,
     ) -> Result<()> {
+        let grid_w_usize = usize::try_from(grid_w)?;
+        let grid_h_usize = usize::try_from(grid_h)?;
+
         // Initialize grid for adjacency tracking
-        self.initialize_grid(grid_w, grid_h);
+        self.initialize_grid(grid_w_usize, grid_h_usize);
 
         println!("Loading target image...");
         let target_img = image::open(target_path)?;
@@ -477,9 +493,9 @@ impl MosaicGenerator {
         println!("Grid: {grid_w}x{grid_h}, Tile size: {tile_width}x{tile_height}");
 
         // Initialize tracking and visualization
-        let total_tiles = (grid_w * grid_h) as usize;
-        let mut time_tracker = TimeTracker::new(total_tiles);
-        let mut grid_visualizer = GridVisualizer::new(grid_w as usize, grid_h as usize, show_grid);
+        let total_tile_count = grid_w_usize * grid_h_usize;
+        let mut time_tracker = TimeTracker::new(total_tile_count);
+        let mut grid_visualizer = GridVisualizer::new(grid_w_usize, grid_h_usize, show_grid);
 
         if show_time {
             time_tracker.start();
@@ -495,7 +511,7 @@ impl MosaicGenerator {
         let mut output_img = ImageBuffer::<Rgb<u8>, Vec<u8>>::new(output_width, output_height);
 
         let total_tiles = grid_w * grid_h;
-        let pb = ProgressBar::new(total_tiles as u64);
+        let pb = ProgressBar::new(u64::from(total_tiles));
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")?,
@@ -506,10 +522,13 @@ impl MosaicGenerator {
         let mut tile_cache = TileCache::new(tile_width, tile_height);
 
         for y in 0..grid_h {
+            let y_idx = usize::try_from(y)?;
             for x in 0..grid_w {
+                let x_idx = usize::try_from(x)?;
+
                 // Update visualization and tracking
                 if show_grid {
-                    grid_visualizer.update_current_tile(x as usize, y as usize);
+                    grid_visualizer.update_current_tile(x_idx, y_idx);
                 }
 
                 let region_x = x * tile_width;
@@ -520,13 +539,13 @@ impl MosaicGenerator {
                 let avg_lab = MosaicGeneratorImpl::calculate_average_lab(&region);
 
                 // Find best matching tile, then record its usage and placement.
-                let selected_tile = match self.find_best_tile(&avg_lab, x as usize, y as usize) {
+                let selected_tile = match self.find_best_tile(&avg_lab, x_idx, y_idx) {
                     Some(tile) => {
-                        self.mark_tile_used(&tile, x as usize, y as usize);
+                        self.mark_tile_used(&tile, x_idx, y_idx);
                         Some(tile)
                     }
                     None if self.tiles.is_empty() => None,
-                    None => self.fallback_tile_selection(&avg_lab, x as usize, y as usize),
+                    None => self.fallback_tile_selection(&avg_lab, x_idx, y_idx),
                 };
 
                 if let Some(best_tile) = selected_tile {
@@ -557,7 +576,7 @@ impl MosaicGenerator {
                     time_tracker.tick();
                 }
                 if show_grid {
-                    grid_visualizer.complete_tile(x as usize, y as usize);
+                    grid_visualizer.complete_tile(x_idx, y_idx);
                 }
 
                 pb.inc(1);
@@ -612,8 +631,10 @@ impl MosaicGenerator {
             output_img = ImageBuffer::<Rgb<u8>, Vec<u8>>::new(output_width, output_height);
 
             for y in 0..grid_h {
+                let y_idx = usize::try_from(y)?;
                 for x in 0..grid_w {
-                    if let Some(tile_path) = &self.placed_tiles[y as usize][x as usize] {
+                    let x_idx = usize::try_from(x)?;
+                    if let Some(tile_path) = &self.placed_tiles[y_idx][x_idx] {
                         let mut resized = tile_cache.get(tile_path)?;
 
                         // Apply color adjustment in optimization phase as well
@@ -661,7 +682,10 @@ impl MosaicGenerator {
             println!("  Total elapsed time: {}", time_tracker.format_elapsed());
             println!(
                 "  Average time per tile: {:.2}ms",
-                time_tracker.elapsed().as_millis() as f64 / time_tracker.total_tiles() as f64
+                ms_per_tile(
+                    time_tracker.elapsed().as_millis(),
+                    time_tracker.total_tiles()
+                )
             );
         }
 
@@ -671,23 +695,23 @@ impl MosaicGenerator {
     fn calculate_average_rgb(img: &DynamicImage) -> Rgb<u8> {
         let rgb_img = img.to_rgb8();
         let (width, height) = rgb_img.dimensions();
-        let total_pixels = (width * height) as u64;
+        let total_pixels = u64::from(width) * u64::from(height);
 
         let (sum_r, sum_g, sum_b) =
             rgb_img
                 .pixels()
                 .fold((0u64, 0u64, 0u64), |(r, g, b), pixel| {
                     (
-                        r + pixel[0] as u64,
-                        g + pixel[1] as u64,
-                        b + pixel[2] as u64,
+                        r + u64::from(pixel[0]),
+                        g + u64::from(pixel[1]),
+                        b + u64::from(pixel[2]),
                     )
                 });
 
         Rgb([
-            (sum_r / total_pixels) as u8,
-            (sum_g / total_pixels) as u8,
-            (sum_b / total_pixels) as u8,
+            average_channel(sum_r, total_pixels),
+            average_channel(sum_g, total_pixels),
+            average_channel(sum_b, total_pixels),
         ])
     }
 }
@@ -698,7 +722,7 @@ fn main() -> Result<()> {
     // Get target aspect ratio
     let target_img = image::open(&args.target)?;
     let (width, height) = target_img.dimensions();
-    let target_aspect = width as f32 / height as f32;
+    let target_aspect = aspect_ratio(width, height);
     drop(target_img);
 
     println!("Target aspect ratio: {target_aspect:.3}");

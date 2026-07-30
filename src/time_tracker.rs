@@ -7,6 +7,12 @@ pub struct TimeTracker {
     completed_tiles: usize,
 }
 
+/// Tile counts stay far below 2^53, the exact-integer range of f64.
+#[allow(clippy::cast_precision_loss)]
+fn count_f64(count: usize) -> f64 {
+    count as f64
+}
+
 impl TimeTracker {
     pub fn new(total_tiles: usize) -> Self {
         Self {
@@ -35,14 +41,14 @@ impl TimeTracker {
         }
 
         let elapsed = self.elapsed();
-        let average_time_per_tile = elapsed.as_secs_f64() / self.completed_tiles as f64;
+        let average_time_per_tile = elapsed.as_secs_f64() / count_f64(self.completed_tiles);
         let remaining_tiles = self.total_tiles - self.completed_tiles;
 
         if remaining_tiles == 0 {
             return Some(Duration::from_secs(0));
         }
 
-        let eta_seconds = average_time_per_tile * remaining_tiles as f64;
+        let eta_seconds = average_time_per_tile * count_f64(remaining_tiles);
         Some(Duration::from_secs_f64(eta_seconds))
     }
 
@@ -50,7 +56,7 @@ impl TimeTracker {
         if self.total_tiles == 0 {
             return 1.0;
         }
-        self.completed_tiles as f64 / self.total_tiles as f64
+        count_f64(self.completed_tiles) / count_f64(self.total_tiles)
     }
 
     pub fn completed_tiles(&self) -> usize {
