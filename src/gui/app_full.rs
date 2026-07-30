@@ -1360,8 +1360,15 @@ impl InternalMosaicGenerator {
         }
     }
 
-    /// Selects the best tile and records its usage and placement.
-    fn find_best_tile(&mut self, target_lab: &Lab, position: GridPosition) -> Option<Arc<Tile>> {
+    /// Pure 3-stage lookup — never mutates usage tracking or placed tiles.
+    /// `select_best_tile` runs this same cascade on the mutable path and
+    /// additionally records the winner; see it for why the usage-tracker
+    /// reset can't live in this function (`&self` can't call
+    /// `UsageTracker::reset`). Only tests call this directly, to verify the
+    /// lookup itself is side-effect-free; production always goes through
+    /// `select_best_tile`.
+    #[cfg(test)]
+    fn find_best_tile(&self, target_lab: &Lab, position: GridPosition) -> Option<Arc<Tile>> {
         // Check if we have any tiles at all
         if self.tiles.is_empty() {
             eprintln!("❌ CRITICAL: No tiles available for mosaic generation");
@@ -1406,7 +1413,78 @@ impl InternalMosaicGenerator {
         None
     }
 
-    fn find_primary_tile(&mut self, target_lab: &Lab, position: GridPosition) -> Option<Arc<Tile>> {
+    /// Records that `tile` was placed at `position`: usage tracking before
+    /// the grid write, in the same order `find_primary_tile` /
+    /// `fallback_tile_selection` / `final_fallback_selection` used to
+    /// mutate in before this find/mark split.
+    fn mark_tile_used(&mut self, tile: &Tile, position: GridPosition) {
+        self.usage_tracker.use_image(&tile.path);
+        self.placed_tiles[position.y][position.x] = Some(tile.path.clone());
+    }
+
+    /// Resets per-image usage limits before the fallback pass runs. The
+    /// original `fallback_tile_selection` did this unconditionally, before
+    /// scoring any candidate, every time primary selection failed — this
+    /// preserves that same timing on the mutable path.
+    fn reset_tile_usage(&mut self, position: GridPosition) {
+        eprintln!(
+            "🔄 FALLBACK: Resetting usage tracker for position ({}, {})",
+            position.x, position.y
+        );
+        self.usage_tracker.reset();
+    }
+
+    /// Runs the same three-stage cascade as `find_best_tile`, but commits
+    /// the winner: resets usage before the fallback pass and marks the
+    /// selected tile used. This is the single composition point both the
+    /// generation loop and tests use instead of calling `find_best_tile`
+    /// (a lookup) as if it also recorded placement.
+    fn select_best_tile(&mut self, target_lab: &Lab, position: GridPosition) -> Option<Arc<Tile>> {
+        if self.tiles.is_empty() {
+            eprintln!("❌ CRITICAL: No tiles available for mosaic generation");
+            return None;
+        }
+
+        if let Some(tile) = self.find_primary_tile(target_lab, position) {
+            self.mark_tile_used(&tile, position);
+            return Some(tile);
+        }
+
+        eprintln!(
+            "⚠️ PRIMARY SELECTION FAILED for position ({}, {}), trying fallback...",
+            position.x, position.y
+        );
+        self.reset_tile_usage(position);
+        if let Some(tile) = self.fallback_tile_selection(target_lab, position) {
+            eprintln!(
+                "✅ FALLBACK SELECTION SUCCESS for position ({}, {})",
+                position.x, position.y
+            );
+            self.mark_tile_used(&tile, position);
+            return Some(tile);
+        }
+
+        eprintln!(
+            "⚠️ FALLBACK SELECTION FAILED for position ({}, {}), trying final fallback...",
+            position.x, position.y
+        );
+        if let Some(tile) = self.final_fallback_selection(target_lab, position) {
+            eprintln!(
+                "✅ FINAL FALLBACK SUCCESS for position ({}, {})",
+                position.x, position.y
+            );
+            self.mark_tile_used(&tile, position);
+            return Some(tile);
+        }
+
+        eprintln!(
+            "❌ CRITICAL: ALL FALLBACK METHODS FAILED for position ({}, {})",
+            position.x, position.y
+        );
+        None
+    }
+
+    fn find_primary_tile(&self, target_lab: &Lab, position: GridPosition) -> Option<Arc<Tile>> {
         let adjacency_calc =
             AdjacencyPenaltyCalculator::new(&self.similarity_db, self.adjacency_penalty_weight);
 
@@ -1466,20 +1544,18 @@ impl InternalMosaicGenerator {
         }
 
         if best_tile.is_none() {
-            eprintln!("🔍 PRIMARY SELECTION DEBUG for position ({}, {}): evaluated {} candidates, rejected {} for usage, {} for adjacency", 
+            eprintln!("🔍 PRIMARY SELECTION DEBUG for position ({}, {}): evaluated {} candidates, rejected {} for usage, {} for adjacency",
                 position.x, position.y, candidates_evaluated, rejected_usage, rejected_adjacency);
-        }
-
-        if let Some(tile) = &best_tile {
-            self.usage_tracker.use_image(&tile.path);
-            self.placed_tiles[position.y][position.x] = Some(tile.path.clone());
         }
 
         best_tile
     }
 
+    /// Pure lookup: scores candidates by adjacency eligibility only. The
+    /// original usage-tracker reset that made this pass "relaxed" now lives
+    /// in `reset_tile_usage`, called by `select_best_tile` before this runs.
     fn fallback_tile_selection(
-        &mut self,
+        &self,
         target_lab: &Lab,
         position: GridPosition,
     ) -> Option<Arc<Tile>> {
@@ -1488,13 +1564,6 @@ impl InternalMosaicGenerator {
             eprintln!("❌ FALLBACK: No tiles available for mosaic generation");
             return None;
         }
-
-        // Reset usage tracker and try again with only adjacency constraint
-        eprintln!(
-            "🔄 FALLBACK: Resetting usage tracker for position ({}, {})",
-            position.x, position.y
-        );
-        self.usage_tracker.reset();
 
         let candidates = self
             .kdtree
@@ -1511,17 +1580,15 @@ impl InternalMosaicGenerator {
             let tile = &self.tiles[tile_idx];
             candidates_evaluated += 1;
 
-            if self.can_place(&tile.path, position) {
-                eprintln!(
-                    "🔄 FALLBACK SUCCESS: Found tile {} after resetting usage tracker",
-                    tile.path.file_name().unwrap_or_default().to_string_lossy()
-                );
-                self.usage_tracker.use_image(&tile.path);
-                self.placed_tiles[position.y][position.x] = Some(tile.path.clone());
-                return Some(tile.clone());
-            } else {
+            if !self.can_place(&tile.path, position) {
                 rejected_adjacency += 1;
+                continue;
             }
+            eprintln!(
+                "🔄 FALLBACK SUCCESS: Found tile {} after resetting usage tracker",
+                tile.path.file_name().unwrap_or_default().to_string_lossy()
+            );
+            return Some(tile.clone());
         }
 
         eprintln!("🔍 FALLBACK DEBUG for position ({}, {}): evaluated {} candidates, rejected {} for adjacency", 
@@ -1530,7 +1597,7 @@ impl InternalMosaicGenerator {
     }
 
     fn final_fallback_selection(
-        &mut self,
+        &self,
         target_lab: &Lab,
         position: GridPosition,
     ) -> Option<Arc<Tile>> {
@@ -1566,8 +1633,6 @@ impl InternalMosaicGenerator {
             color_distance,
             position.x, position.y);
 
-        self.usage_tracker.use_image(&tile.path);
-        self.placed_tiles[position.y][position.x] = Some(tile.path.clone());
         Some(tile.clone())
     }
 
@@ -1855,7 +1920,7 @@ fn generate_mosaic_internal(
                 x: grid_index(col)?,
                 y: grid_index(row)?,
             };
-            if let Some(tile) = generator.find_best_tile(&target_lab, position) {
+            if let Some(tile) = generator.select_best_tile(&target_lab, position) {
                 if verbose {
                     debug_log(&format!(
                         "Selected tile: {} (Lab: L={:.1} a={:.1} b={:.1})",
@@ -2627,7 +2692,7 @@ mod tests {
     fn test_internal_mosaic_generator_empty_tiles() {
         let tiles = Vec::new();
         let similarity_db = SimilarityDatabase::new();
-        let mut generator = InternalMosaicGenerator::new(tiles, 2, 2, 3, similarity_db, 0.3);
+        let generator = InternalMosaicGenerator::new(tiles, 2, 2, 3, similarity_db, 0.3);
 
         let target_lab = Lab::new(50.0, 0.0, 0.0);
         let position = GridPosition { x: 0, y: 0 };
@@ -2636,6 +2701,38 @@ mod tests {
         assert!(
             result.is_none(),
             "Should return None when no tiles are available"
+        );
+    }
+
+    #[test]
+    fn test_find_best_tile_does_not_mutate() {
+        use std::path::PathBuf;
+
+        let tiles = vec![Arc::new(Tile {
+            path: PathBuf::from("test1.png"),
+            lab_color: Lab::new(50.0, 0.0, 0.0),
+            aspect_ratio: 1.0,
+        })];
+
+        let similarity_db = SimilarityDatabase::new();
+        // Not `mut`: find_best_tile is a pure lookup, so the generator
+        // never needs a mutable borrow here.
+        let generator = InternalMosaicGenerator::new(tiles, 2, 2, 3, similarity_db, 0.3);
+
+        let target_lab = Lab::new(50.0, 0.0, 0.0);
+        let position = GridPosition { x: 0, y: 0 };
+
+        let result = generator.find_best_tile(&target_lab, position);
+        assert!(result.is_some());
+
+        let tile = result.unwrap();
+        assert!(
+            generator.usage_tracker.can_use_image(&tile.path),
+            "find_best_tile must not record usage"
+        );
+        assert!(
+            generator.placed_tiles[0][0].is_none(),
+            "find_best_tile must not place the tile"
         );
     }
 
@@ -2697,11 +2794,11 @@ mod tests {
         let position2 = GridPosition { x: 1, y: 0 };
 
         // First placement should succeed
-        let result1 = generator.find_best_tile(&target_lab, position1);
+        let result1 = generator.select_best_tile(&target_lab, position1);
         assert!(result1.is_some(), "First placement should succeed");
 
         // Second placement might need to use fallback due to usage constraints
-        let result2 = generator.find_best_tile(&target_lab, position2);
+        let result2 = generator.select_best_tile(&target_lab, position2);
         assert!(
             result2.is_some(),
             "Second placement should succeed with fallback"
@@ -2730,6 +2827,14 @@ mod tests {
             result.is_some(),
             "Final fallback should always succeed when tiles exist"
         );
+        // final_fallback_selection is now a pure lookup — nothing is placed
+        // until mark_tile_used records it.
+        assert!(
+            generator.placed_tiles[0][0].is_none(),
+            "Pure lookup should not place the tile"
+        );
+
+        generator.mark_tile_used(&result.unwrap(), position);
 
         // Verify the tile was placed
         assert!(
@@ -2820,7 +2925,7 @@ mod tests {
         for y in 0..2 {
             for x in 0..2 {
                 let position = GridPosition { x, y };
-                let result = generator.find_best_tile(&target_lab, position);
+                let result = generator.select_best_tile(&target_lab, position);
                 assert!(
                     result.is_some(),
                     "All positions should be filled even with restrictive constraints"
@@ -2870,6 +2975,14 @@ mod tests {
             result.is_some(),
             "Primary selection should succeed with available tiles"
         );
+        // find_primary_tile is now a pure lookup — nothing is placed until
+        // mark_tile_used records it.
+        assert!(
+            generator.placed_tiles[0][0].is_none(),
+            "Pure lookup should not place the tile"
+        );
+
+        generator.mark_tile_used(&result.unwrap(), position);
 
         // Verify the tile was placed
         assert!(
@@ -3150,11 +3263,11 @@ mod tests {
         let position2 = GridPosition { x: 1, y: 1 }; // Non-adjacent position
 
         // First placement uses up the tile
-        let result1 = generator.find_best_tile(&target_lab, position1);
+        let result1 = generator.select_best_tile(&target_lab, position1);
         assert!(result1.is_some(), "First placement should succeed");
 
         // Second placement should succeed through fallback (usage tracker reset)
-        let result2 = generator.find_best_tile(&target_lab, position2);
+        let result2 = generator.select_best_tile(&target_lab, position2);
         assert!(
             result2.is_some(),
             "Second placement should succeed with fallback"
