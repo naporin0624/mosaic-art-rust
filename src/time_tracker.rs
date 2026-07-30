@@ -128,10 +128,12 @@ mod tests {
     #[test]
     fn test_time_tracker_elapsed() {
         let mut tracker = TimeTracker::new(5);
-        thread::sleep(Duration::from_millis(10));
+        // Wide margin between the two sleeps so instrumented runs
+        // (e.g. tarpaulin) cannot flip the final comparison
+        thread::sleep(Duration::from_millis(200));
 
         let elapsed = tracker.elapsed();
-        assert!(elapsed.as_millis() >= 10);
+        assert!(elapsed.as_millis() >= 200);
 
         tracker.start();
         thread::sleep(Duration::from_millis(5));
