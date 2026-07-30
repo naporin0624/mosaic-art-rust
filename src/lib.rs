@@ -1,5 +1,5 @@
 use image::DynamicImage;
-use palette::{FromColor, Lab, Srgb};
+use palette::Lab;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -8,6 +8,7 @@ pub mod color_adjustment;
 pub mod grid_visualizer;
 pub mod optimizer;
 pub mod similarity;
+pub mod tile_cache;
 pub mod time_tracker;
 
 // GUI-related data structures for testing
@@ -90,31 +91,62 @@ impl UsageTracker {
 
 pub struct MosaicGeneratorImpl;
 
+/// Lookup table for the sRGB transfer function: u8 channel value -> linear intensity.
+/// Replaces a powf(2.4) call per channel with an array access.
+fn srgb_to_linear_lut() -> &'static [f32; 256] {
+    static LUT: std::sync::OnceLock<[f32; 256]> = std::sync::OnceLock::new();
+    LUT.get_or_init(|| {
+        std::array::from_fn(|i| {
+            let c = i as f32 / 255.0;
+            if c <= 0.04045 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        })
+    })
+}
+
 impl MosaicGenerator for MosaicGeneratorImpl {
     fn calculate_average_lab(img: &DynamicImage) -> Lab {
+        // D65/2° white point, matching the palette crate's defaults
+        const XN: f32 = 0.95047;
+        const ZN: f32 = 1.08883;
+        const DELTA_CUBED: f32 = 0.008856452; // (6/29)^3
+        #[inline]
+        fn lab_f(t: f32) -> f32 {
+            if t > DELTA_CUBED {
+                t.cbrt()
+            } else {
+                t * 7.787037 + 4.0 / 29.0 // t / (3*(6/29)^2) + 4/29
+            }
+        }
+
         let rgb_img = img.to_rgb8();
         let (width, height) = rgb_img.dimensions();
-        let total_pixels = (width * height) as f32;
+        let total_pixels = (width * height) as f64;
+        let lut = srgb_to_linear_lut();
 
-        let (sum_l, sum_a, sum_b) = rgb_img
-            .pixels()
-            .map(|pixel| {
-                let srgb = Srgb::new(
-                    pixel[0] as f32 / 255.0,
-                    pixel[1] as f32 / 255.0,
-                    pixel[2] as f32 / 255.0,
-                );
-                let lab: Lab = Lab::from_color(srgb);
-                (lab.l, lab.a, lab.b)
-            })
-            .fold((0.0, 0.0, 0.0), |(l, a, b), (l2, a2, b2)| {
-                (l + l2, a + a2, b + b2)
-            });
+        let (mut sum_l, mut sum_a, mut sum_b) = (0.0f64, 0.0f64, 0.0f64);
+        for pixel in rgb_img.pixels() {
+            let r = lut[pixel[0] as usize];
+            let g = lut[pixel[1] as usize];
+            let b = lut[pixel[2] as usize];
+
+            // Linear sRGB -> XYZ (D65), normalized by the white point
+            let fx = lab_f((0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / XN);
+            let fy = lab_f(0.2126729 * r + 0.7151522 * g + 0.0721750 * b);
+            let fz = lab_f((0.0193339 * r + 0.119_192 * g + 0.9503041 * b) / ZN);
+
+            sum_l += (116.0 * fy - 16.0) as f64;
+            sum_a += (500.0 * (fx - fy)) as f64;
+            sum_b += (200.0 * (fy - fz)) as f64;
+        }
 
         Lab::new(
-            sum_l / total_pixels,
-            sum_a / total_pixels,
-            sum_b / total_pixels,
+            (sum_l / total_pixels) as f32,
+            (sum_a / total_pixels) as f32,
+            (sum_b / total_pixels) as f32,
         )
     }
 
@@ -128,6 +160,7 @@ mod tests {
     use super::*;
     use image::{ImageBuffer, Rgb};
     use kiddo::SquaredEuclidean;
+    use palette::{FromColor, Srgb};
 
     #[test]
     fn test_calculate_average_lab_single_color() {
@@ -155,6 +188,53 @@ mod tests {
         assert!((lab.l - 53.59).abs() < 1.0);
         assert!(lab.a.abs() < 1.0);
         assert!(lab.b.abs() < 1.0);
+    }
+
+    #[test]
+    fn test_calculate_average_lab_matches_palette_reference() {
+        // Varied-color image exercising the full sRGB range including extremes
+        let img_buffer = ImageBuffer::from_fn(64, 64, |x, y| {
+            Rgb([
+                ((x * 4 + y) % 256) as u8,
+                ((y * 4 + x * 7) % 256) as u8,
+                ((x * 13 + y * 3) % 256) as u8,
+            ])
+        });
+
+        // Reference: per-pixel conversion through the palette crate
+        let (mut sum_l, mut sum_a, mut sum_b) = (0.0f64, 0.0f64, 0.0f64);
+        for pixel in img_buffer.pixels() {
+            let srgb = Srgb::new(
+                pixel[0] as f32 / 255.0,
+                pixel[1] as f32 / 255.0,
+                pixel[2] as f32 / 255.0,
+            );
+            let lab: Lab = Lab::from_color(srgb);
+            sum_l += lab.l as f64;
+            sum_a += lab.a as f64;
+            sum_b += lab.b as f64;
+        }
+        let n = (64 * 64) as f64;
+        let (ref_l, ref_a, ref_b) = (sum_l / n, sum_a / n, sum_b / n);
+
+        let img = DynamicImage::ImageRgb8(img_buffer);
+        let lab = MosaicGeneratorImpl::calculate_average_lab(&img);
+
+        assert!(
+            (lab.l as f64 - ref_l).abs() < 0.05,
+            "L: {} vs {ref_l}",
+            lab.l
+        );
+        assert!(
+            (lab.a as f64 - ref_a).abs() < 0.05,
+            "a: {} vs {ref_a}",
+            lab.a
+        );
+        assert!(
+            (lab.b as f64 - ref_b).abs() < 0.05,
+            "b: {} vs {ref_b}",
+            lab.b
+        );
     }
 
     #[test]

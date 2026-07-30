@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use fast_image_resize::{images::Image as FirImage, ResizeOptions, Resizer};
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb};
 use indicatif::{ProgressBar, ProgressStyle};
 use kiddo::SquaredEuclidean;
@@ -9,6 +8,7 @@ use mosaic_rust::color_adjustment::calculate_optimal_adjustment;
 use mosaic_rust::grid_visualizer::GridVisualizer;
 use mosaic_rust::optimizer::{MosaicOptimizer, OptimizationConfig};
 use mosaic_rust::similarity::SimilarityDatabase;
+use mosaic_rust::tile_cache::TileCache;
 use mosaic_rust::time_tracker::TimeTracker;
 use mosaic_rust::{
     MosaicGenerator as MosaicGeneratorTrait, MosaicGeneratorImpl, Tile, UsageTracker,
@@ -525,6 +525,7 @@ impl MosaicGenerator {
 
         // Process tiles sequentially for usage tracking
         let mut tile_results = Vec::new();
+        let mut tile_cache = TileCache::new(tile_width, tile_height);
 
         for y in 0..grid_h {
             for x in 0..grid_w {
@@ -544,9 +545,8 @@ impl MosaicGenerator {
                 if let Some(best_tile) =
                     self.find_and_use_best_tile_with_position(&avg_lab, x as usize, y as usize)
                 {
-                    // Load and resize the tile
-                    let tile_img = image::open(&best_tile.path)?;
-                    let mut resized = Self::resize_image(&tile_img, tile_width, tile_height)?;
+                    // Load and resize the tile (decoded at most once per material)
+                    let mut resized = tile_cache.get(&best_tile.path)?;
 
                     // Apply color adjustment if enabled
                     if self.color_adjustment_strength > 0.0 {
@@ -629,8 +629,7 @@ impl MosaicGenerator {
             for y in 0..grid_h {
                 for x in 0..grid_w {
                     if let Some(tile_path) = &self.placed_tiles[y as usize][x as usize] {
-                        let tile_img = image::open(tile_path)?;
-                        let mut resized = Self::resize_image(&tile_img, tile_width, tile_height)?;
+                        let mut resized = tile_cache.get(tile_path)?;
 
                         // Apply color adjustment in optimization phase as well
                         if self.color_adjustment_strength > 0.0 {
@@ -705,36 +704,6 @@ impl MosaicGenerator {
             (sum_g / total_pixels) as u8,
             (sum_b / total_pixels) as u8,
         ])
-    }
-
-    fn resize_image(
-        img: &DynamicImage,
-        width: u32,
-        height: u32,
-    ) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>> {
-        let src_image = img.to_rgb8();
-        let src_width = src_image.width() as usize;
-        let src_height = src_image.height() as usize;
-
-        let src_fir = FirImage::from_vec_u8(
-            src_width as u32,
-            src_height as u32,
-            src_image.into_raw(),
-            fast_image_resize::PixelType::U8x3,
-        )?;
-
-        let dst_width = width as usize;
-        let dst_height = height as usize;
-        let mut dst_fir = FirImage::new(
-            dst_width as u32,
-            dst_height as u32,
-            fast_image_resize::PixelType::U8x3,
-        );
-
-        let mut resizer = Resizer::new();
-        resizer.resize(&src_fir, &mut dst_fir, &ResizeOptions::new())?;
-
-        Ok(ImageBuffer::from_raw(width, height, dst_fir.into_vec()).unwrap())
     }
 }
 
@@ -886,38 +855,6 @@ mod tests {
 
         // Average should be (255+0+0+255)/4 = 127.5 for each channel
         assert_eq!(avg_rgb, Rgb([127, 127, 127]));
-    }
-
-    #[test]
-    fn test_resize_image() {
-        let original = create_test_image(100, 100, Rgb([255, 0, 0]));
-        let dynamic_img = DynamicImage::ImageRgb8(original);
-
-        let result = MosaicGenerator::resize_image(&dynamic_img, 50, 50);
-
-        assert!(result.is_ok());
-        let resized = result.unwrap();
-        assert_eq!(resized.width(), 50);
-        assert_eq!(resized.height(), 50);
-
-        // Check that the color is preserved (approximately)
-        let pixel = resized.get_pixel(25, 25);
-        assert!(pixel[0] > 200); // Should still be mostly red
-        assert!(pixel[1] < 50); // Should have minimal green
-        assert!(pixel[2] < 50); // Should have minimal blue
-    }
-
-    #[test]
-    fn test_resize_image_aspect_ratio_change() {
-        let original = create_test_image(100, 100, Rgb([0, 255, 0]));
-        let dynamic_img = DynamicImage::ImageRgb8(original);
-
-        let result = MosaicGenerator::resize_image(&dynamic_img, 200, 100);
-
-        assert!(result.is_ok());
-        let resized = result.unwrap();
-        assert_eq!(resized.width(), 200);
-        assert_eq!(resized.height(), 100);
     }
 
     #[test]
@@ -2568,7 +2505,7 @@ mod tests {
 
         assert!(result.is_ok());
         assert!(output_path.exists());
-        assert!(generator.tiles.len() >= 1); // Should have at least one tile
+        assert!(!generator.tiles.is_empty()); // Should have at least one tile
     }
 
     #[test]
@@ -2613,7 +2550,7 @@ mod tests {
         assert!(output_path.exists());
 
         // Should have loaded at least the square image
-        assert!(generator.tiles.len() >= 1);
+        assert!(!generator.tiles.is_empty());
     }
 
     #[test]
