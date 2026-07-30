@@ -33,6 +33,7 @@ use image::{DynamicImage, ImageBuffer, Rgb};
 use kiddo::SquaredEuclidean;
 #[cfg(not(test))]
 use mosaic_rust::adjacency::{AdjacencyPenaltyCalculator, GridPosition};
+use mosaic_rust::material_format::is_supported;
 #[cfg(not(test))]
 use mosaic_rust::optimizer::{MosaicOptimizer, OptimizationConfig};
 #[cfg(not(test))]
@@ -206,6 +207,12 @@ fn square_grid_width(total_tiles: u32, ratio: f32) -> u32 {
 /// the (practically unreachable) out-of-range case as an error instead of panicking.
 fn grid_index(value: u32) -> Result<usize, String> {
     usize::try_from(value).map_err(|e| format!("grid index out of range: {e}"))
+}
+
+/// Convert a `u32` pixel dimension to `usize`, propagating the (practically
+/// unreachable) out-of-range case as an error instead of panicking.
+fn pixel_index(value: u32) -> Result<usize, String> {
+    usize::try_from(value).map_err(|e| format!("pixel index out of range: {e}"))
 }
 
 /// Display-only progress fraction; realistic grid-cell counts stay exact enough in f32.
@@ -1353,6 +1360,7 @@ impl InternalMosaicGenerator {
         }
     }
 
+    /// Selects the best tile and records its usage and placement.
     fn find_best_tile(&mut self, target_lab: &Lab, position: GridPosition) -> Option<Arc<Tile>> {
         // Check if we have any tiles at all
         if self.tiles.is_empty() {
@@ -1648,7 +1656,7 @@ fn generate_mosaic_internal(
         .map_err(|e| format!("Failed to read material directory: {e}"))?
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
-        .filter(|path| mosaic_rust::material_format::is_supported(path))
+        .filter(|path| is_supported(path))
         .take(settings.max_materials)
         .collect();
 
@@ -1765,7 +1773,7 @@ fn generate_mosaic_internal(
     // Calculate tile dimensions
     let tile_width = target_img.width() / settings.grid_w;
     let tile_height = target_img.height() / settings.grid_h;
-    let tile_width_usize = grid_index(tile_width)?;
+    let tile_width_usize = pixel_index(tile_width)?;
 
     log_message(&format!(
         "🔧 Grid: {}x{} ({}x{} pixels per tile)",
@@ -2220,28 +2228,6 @@ fn generate_mosaic_internal(
     ));
 
     Ok(output_path.to_string_lossy().to_string())
-}
-
-#[allow(dead_code)] // Reserved for future color adjustment integration
-fn apply_color_adjustment(pixels: &[u8], adjustment: (f32, f32, f32), strength: f32) -> Vec<u8> {
-    pixels
-        .chunks_exact(3)
-        .flat_map(|pixel| {
-            let r = f32::from(pixel[0]) / 255.0;
-            let g = f32::from(pixel[1]) / 255.0;
-            let b = f32::from(pixel[2]) / 255.0;
-
-            let adjusted_r = (r + adjustment.0 * strength).clamp(0.0, 1.0);
-            let adjusted_g = (g + adjustment.1 * strength).clamp(0.0, 1.0);
-            let adjusted_b = (b + adjustment.2 * strength).clamp(0.0, 1.0);
-
-            vec![
-                (adjusted_r * 255.0).clamp(0.0, 255.0) as u8,
-                (adjusted_g * 255.0).clamp(0.0, 255.0) as u8,
-                (adjusted_b * 255.0).clamp(0.0, 255.0) as u8,
-            ]
-        })
-        .collect()
 }
 
 #[cfg(test)]

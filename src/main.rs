@@ -6,6 +6,7 @@ use kiddo::SquaredEuclidean;
 use mosaic_rust::adjacency::{AdjacencyPenaltyCalculator, GridPosition};
 use mosaic_rust::color_adjustment::calculate_optimal_adjustment;
 use mosaic_rust::grid_visualizer::GridVisualizer;
+use mosaic_rust::material_format::is_supported;
 use mosaic_rust::optimizer::{MosaicOptimizer, OptimizationConfig};
 use mosaic_rust::similarity::SimilarityDatabase;
 use mosaic_rust::tile_cache::TileCache;
@@ -193,7 +194,7 @@ impl MosaicGenerator {
             .filter_map(|e| e.ok())
             .filter(|e| {
                 let path = e.path();
-                path.is_file() && mosaic_rust::material_format::is_supported(&path)
+                path.is_file() && is_supported(&path)
             })
             .collect();
 
@@ -510,8 +511,7 @@ impl MosaicGenerator {
         let output_height = grid_h * tile_height;
         let mut output_img = ImageBuffer::<Rgb<u8>, Vec<u8>>::new(output_width, output_height);
 
-        let total_tiles = grid_w * grid_h;
-        let pb = ProgressBar::new(u64::from(total_tiles));
+        let pb = ProgressBar::new(wide_u64(total_tile_count));
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")?,
@@ -1718,7 +1718,7 @@ mod tests {
         // Verify all tiles have proper extensions, via the shared registry
         // rather than a second hand-copied extension list.
         for tile in &tiles {
-            assert!(mosaic_rust::material_format::is_supported(&tile.path));
+            assert!(is_supported(&tile.path));
         }
     }
 

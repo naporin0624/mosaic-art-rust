@@ -118,7 +118,8 @@ fn lut_index_f32(i: usize) -> f32 {
     i as f32
 }
 
-/// An average of finite Lab channel values stays well within f32's exact range.
+/// An average of finite Lab channel values is finite and within f32's range: no
+/// saturation to infinity and no NaN. Precision loss from the narrowing is acceptable.
 #[allow(clippy::cast_possible_truncation)]
 fn narrow_f32(x: f64) -> f32 {
     x as f32
