@@ -169,5 +169,5 @@ jobs:
 
       - name: Verify iced and rfd dependencies
         run: |
-          cargo tree --features gui --package iced --depth 1
-          cargo tree --features gui --package rfd --depth 1
+          cargo tree --features gui --invert iced --depth 1
+          cargo tree --features gui --invert rfd --depth 1
