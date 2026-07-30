@@ -1136,7 +1136,10 @@ impl Application for MosaicApp {
         // Generate button with state-dependent text
         let generate_button_text = match &self.processing_state {
             ProcessingState::Processing { .. } => t("generate-button-processing"),
-            _ => t("generate-button"),
+            ProcessingState::Idle
+            | ProcessingState::Loading
+            | ProcessingState::Completed
+            | ProcessingState::Error(_) => t("generate-button"),
         };
 
         let is_processing = matches!(self.processing_state, ProcessingState::Processing { .. });

@@ -377,12 +377,11 @@ impl MosaicGenerator {
             let total_score = color_distance + adjacency_penalty;
 
             // Update best tile if this is better
-            match best_tile {
-                None => best_tile = Some((total_score, tile.clone())),
-                Some((best_score, _)) if total_score < best_score => {
-                    best_tile = Some((total_score, tile.clone()));
-                }
-                _ => {}
+            let is_better = best_tile
+                .as_ref()
+                .is_none_or(|(best_score, _)| total_score < *best_score);
+            if is_better {
+                best_tile = Some((total_score, tile.clone()));
             }
         }
 
